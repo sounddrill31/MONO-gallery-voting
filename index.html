@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Gallery</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Team Gallery<span class="superscript">v2</span></h1>
+            <div class="header-buttons">
+                <button id="votingBtn" class="voting-btn">Open Voting Form</button>
+                <button id="shareBtn" class="share-btn" title="Share">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- Loading State -->
+            <div id="loadingState" class="loading-state">
+                <div class="loading-spinner"></div>
+                <p>Loading Teams...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="errorState" class="error-state" style="display: none;">
+                <p>⚠️ Error Loading Gallery</p>
+                <small>Please check that teams.json exists and is properly formatted.</small>
+            </div>
+
+            <!-- Carousel -->
+            <div id="carouselContainer" class="carousel-container" style="display: none;">
+                <div id="carousel" class="carousel-track"></div>
+                <button id="prevBtn" class="carousel-btn prev">‹</button>
+                <button id="nextBtn" class="carousel-btn next">›</button>
+            </div>
+
+                        <!-- Voter Buttons (Mono scheme, flex, easy to center if needed) -->
+            <div class="voter-buttons" style="display: flex; justify-content: center; gap: 1rem; margin-top: 2rem;">
+                <!-- To center, add: justify-content: center; (hidden flag can be toggled here) -->
+                <button id="votingBtn2" class="voting-btn">Vote Now!</button>
+                <button id="liveResultsBtn" class="voting-btn">See Live Results!</button>
+            </div>
+
+
+            <!-- Carousel Dots -->
+            <div id="carouselDots" class="carousel-dots" style="display: none;"></div>
+
+        </main>
+    </div>
+
+    <!-- Image Preview Modal -->
+    <div id="imageModal" class="modal">
+        <div class="modal-content image-modal-content">
+            <button id="closeModal" class="close-btn">×</button>
+            <button id="modalPrevBtn" class="modal-nav-btn modal-prev">‹</button>
+            <button id="modalNextBtn" class="modal-nav-btn modal-next">›</button>
+            <div class="image-container">
+                <div id="previewLoading" class="preview-loading">
+                    <div class="loading-spinner"></div>
+                </div>
+                <img id="modalImage" alt="Team preview">
+            </div>
+            <div class="image-info">
+                <div id="modalFilename" class="filename"></div>
+                <div class="image-controls">
+                    <div class="flip-controls">
+                        <button id="flipLeftBtn" class="control-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M15.41 16.58L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.42z"/>
+                            </svg>
+                            Flip Left
+                        </button>
+                        <button id="flipRightBtn" class="control-btn">
+                            Flip Right
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="action-buttons">
+                        <button id="downloadBtn" class="action-btn">Download</button>
+                        <button id="copyBtn" class="action-btn">Copy</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Voting Modal -->
+    <div id="votingModal" class="modal">
+        <div class="modal-content voting-content">
+            <button id="closeVoting" class="close-btn">×</button>
+            <iframe id="votingFrame" sandbox="allow-scripts allow-same-origin" src="https://google.com/viewform?embedded=true"></iframe>
+        </div>
+    </div>
+
+    <!-- Live Results Modal (Mono scheme, same as voting modal) -->
+    <div id="liveResultsModal" class="modal">
+        <div class="modal-content voting-content">
+            <button id="closeLiveResults" class="close-btn">×</button>
+            <iframe id="liveResultsFrame" src="https://google.com/viewanalytics"></iframe>
+        </div>
+    </div>
+
+    <!-- Share Modal -->
+    <div id="shareModal" class="modal">
+        <div class="modal-content share-content">
+            <button id="closeShare" class="close-btn">×</button>
+            <div class="share-container">
+                <h2>Share This Gallery</h2>
+                <div class="url-section">
+                    <label for="shareUrl">Website URL:</label>
+                    <div class="url-input-container">
+                        <input type="text" id="shareUrl" readonly>
+                        <button id="copyUrlBtn" class="copy-url-btn">Copy</button>
+                    </div>
+                </div>
+                <div class="qr-section">
+                    <h3>QR Code</h3>
+                    <div id="qrCode" class="qr-code-container"></div>
+                </div>
+
+                <div>
+                    <p>Made by Students of BCA 3rd Year. </p>
+                    <a href="https://github.com/sounddrill31/GForms-Image-Voter/issues" target="_blank">Report Problems or Give Feedback!</a> 
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

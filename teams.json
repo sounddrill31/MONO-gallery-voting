@@ -1,0 +1,17 @@
+[
+  {
+    "teamName": "Team Calculator",
+    "image": "images/Calculator-Team1.jpg",
+    "description": "Experimental design with unique style."
+  },
+  {
+    "teamName": "Team SMU",
+    "image": "images/SMU-Team2.jpg",
+    "description": "Experimental design with unique style."
+  },
+  {
+    "teamName": "Team MM",
+    "image": "images/Multimeter-Team3.jpg",
+    "description": "Experimental design with unique style."
+  }
+]

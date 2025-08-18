@@ -100,7 +100,13 @@
     <div id="votingModal" class="modal">
         <div class="modal-content voting-content">
             <button id="closeVoting" class="close-btn">×</button>
-            <iframe id="votingFrame" sandbox="allow-scripts allow-modals allow-orientation-lock allow-forms allow-same-origin" src="https://docs.google.com/forms/d/1v9XbSLhsfE_fzRLHaSrn9EewZSUrgc7-Jiw86ut-Bdk/viewform?embedded=true"></iframe>
+            <div id="votingFrame">
+
+                    <!-- Thank You Message -->
+                    <div id="thankYouMessage" style="display:none; text-align:center; font-size:1.2rem; font-weight:bold; margin-top:2rem;">
+                        Thank you for submitting!
+                    </div>
+            </div>
         </div>
     </div>
 
@@ -108,8 +114,9 @@
     <div id="liveResultsModal" class="modal">
         <div class="modal-content voting-content">
             <button id="closeLiveResults" class="close-btn">×</button>
-            <iframe id="liveResultsFrame" sandbox="allow-scripts allow-modals allow-orientation-lock allow-forms allow-same-origin" src="https://docs.google.com/forms/d/1v9XbSLhsfE_fzRLHaSrn9EewZSUrgc7-Jiw86ut-Bdk/viewanalytics"></iframe>
+            <div id="liveResultsFrame"></div>
         </div>
+
     </div>
 
     <!-- Share Modal -->
@@ -137,6 +144,7 @@
             </div>
         </div>
     </div>
+
 
     <script src="script.js"></script>
 </body>

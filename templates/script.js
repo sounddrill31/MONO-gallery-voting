@@ -51,6 +51,9 @@ document.addEventListener('DOMContentLoaded', () => {
             this.updateVoteLink();
             this.initHeroCarousel();
             this.initShare();
+            this.setupPinchToZoom();
+            this.setupGestures();
+            this.setupDownloadButton();
         }
 
         renderGallery() {
@@ -146,11 +149,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         zoom(factor) {
-            this.zoomLevel = Math.max(0.5, Math.min(this.zoomLevel * factor, 10));
+            // Ensure the zoom level is updated correctly without reversing the direction
+            const newZoomLevel = this.zoomLevel * factor;
+            this.zoomLevel = Math.max(0.5, Math.min(newZoomLevel, 10));
+
             this.applyTransform();
         }
 
         applyTransform() {
+            // Removed background reset logic to allow unrestricted panning
             this.elements.modalImage.style.transform = `scale(${this.zoomLevel}) translate(${this.pan.x}px, ${this.pan.y}px)`;
         }
 
@@ -161,22 +168,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         startPanDrag(e) {
-            if (e.button !== 0 || this.zoomLevel <= 1) return;
+            // Ensure the user is touching the photo itself
+            if (e.target !== this.elements.modalImage) return;
+
+            // Support both mouse and touch events
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
             this.isPanning = true;
-            this.startPan.x = e.clientX - this.pan.x;
-            this.startPan.y = e.clientY - this.pan.y;
+            this.startPan.x = clientX - this.pan.x;
+            this.startPan.y = clientY - this.pan.y;
             this.elements.imageContainer.classList.add('grabbing');
 
-            // Prevent default behavior to avoid text selection
+            // Prevent default behavior to avoid text selection or scrolling
             e.preventDefault();
         }
 
         panDrag(e) {
             if (!this.isPanning) return;
 
-            // Update pan values based on mouse movement
-            this.pan.x = e.clientX - this.startPan.x;
-            this.pan.y = e.clientY - this.startPan.y;
+            // Support both mouse and touch events
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            // Calculate the new pan position
+            this.pan.x = clientX - this.startPan.x;
+            this.pan.y = clientY - this.startPan.y;
+
             this.applyTransform();
 
             // Prevent default behavior to avoid unwanted side effects
@@ -186,6 +204,41 @@ document.addEventListener('DOMContentLoaded', () => {
         endPanDrag() {
             this.isPanning = false;
             this.elements.imageContainer.classList.remove('grabbing');
+        }
+
+        setupPinchToZoom() {
+            let initialDistance = null;
+            let initialZoomLevel = this.zoomLevel;
+
+            const getDistance = (touches) => {
+                const [touch1, touch2] = touches;
+                const dx = touch2.clientX - touch1.clientX;
+                const dy = touch2.clientY - touch1.clientY;
+                return Math.sqrt(dx * dx + dy * dy);
+            };
+
+            this.elements.imageContainer.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 2) {
+                    initialDistance = getDistance(e.touches);
+                    initialZoomLevel = this.zoomLevel;
+                }
+            });
+
+            this.elements.imageContainer.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 2 && initialDistance) {
+                    const currentDistance = getDistance(e.touches);
+                    const scaleFactor = currentDistance / initialDistance;
+                    this.zoomLevel = Math.max(0.5, Math.min(initialZoomLevel * scaleFactor, 10));
+                    this.applyTransform();
+                    e.preventDefault();
+                }
+            });
+
+            this.elements.imageContainer.addEventListener('touchend', (e) => {
+                if (e.touches.length < 2) {
+                    initialDistance = null;
+                }
+            });
         }
 
         handleWheelZoom(e) {
@@ -374,6 +427,59 @@ document.addEventListener('DOMContentLoaded', () => {
                 colorDark: "#000000",
                 colorLight: "#ffffff",
                 correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        setupGestures() {
+            let initialDistance = null;
+            let initialZoomLevel = this.zoomLevel;
+
+            const getDistance = (touches) => {
+                const [touch1, touch2] = touches;
+                const dx = touch2.clientX - touch1.clientX;
+                const dy = touch2.clientY - touch1.clientY;
+                return Math.sqrt(dx * dx + dy * dy);
+            };
+
+            this.elements.imageContainer.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 2) {
+                    initialDistance = getDistance(e.touches);
+                    initialZoomLevel = this.zoomLevel;
+                } else if (e.touches.length === 1) {
+                    this.startPanDrag(e);
+                }
+            });
+
+            this.elements.imageContainer.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 2 && initialDistance) {
+                    const currentDistance = getDistance(e.touches);
+                    const scaleFactor = currentDistance / initialDistance;
+                    this.zoom(initialZoomLevel * scaleFactor);
+                    e.preventDefault();
+                } else if (e.touches.length === 1) {
+                    this.panDrag(e);
+                }
+            });
+
+            this.elements.imageContainer.addEventListener('touchend', (e) => {
+                if (e.touches.length < 2) {
+                    initialDistance = null;
+                }
+                this.endPanDrag();
+            });
+        }
+
+        setupDownloadButton() {
+            const downloadBtn = document.getElementById('downloadBtn');
+            downloadBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.5 13.95C13.7485 13.95 13.95 13.7485 13.95 13.5C13.95 13.2514 13.7485 13.05 13.5 13.05L1.49995 13.05C1.25142 13.05 1.04995 13.2514 1.04995 13.5C1.04995 13.7485 1.25142 13.95 1.49995 13.95L13.5 13.95ZM11.0681 7.5683C11.2439 7.39257 11.2439 7.10764 11.0681 6.93191C10.8924 6.75617 10.6075 6.75617 10.4317 6.93191L7.94993 9.41371L7.94993 1.49998C7.94993 1.25146 7.74846 1.04998 7.49993 1.04998C7.2514 1.04998 7.04993 1.25146 7.04993 1.49998L7.04993 9.41371L4.56813 6.93191C4.39239 6.75617 4.10746 6.75617 3.93173 6.93191C3.75599 7.10764 3.75599 7.39257 3.93173 7.5683L7.18173 10.8183C7.35746 10.994 7.64239 10.994 7.81812 10.8183L11.0681 7.5683Z" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd"></path></svg>`;
+
+            downloadBtn.addEventListener('click', () => {
+                const link = document.createElement('a');
+                link.href = this.elements.modalImage.src;
+                const team = this.teams[this.currentTeamIndex];
+                const id = this.config.hide_team_data ? team.rank : team.team_number;
+                link.download = `${id}-gcc-photography.avif`;
+                link.click();
             });
         }
     }

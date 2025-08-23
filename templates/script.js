@@ -91,9 +91,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateModalContent() {
             const team = this.teams[this.currentTeamIndex];
-            // For now, we assume one image per team in the modal
-            const imageUrl = team.images.length > 0 ? team.images[0] : 'placeholder.png';
-            this.elements.modalImage.src = imageUrl;
+            // Ensure the image URL is valid and set it to the modal image
+            if (team.images && team.images.length > 0) {
+                const imageUrl = team.images[0];
+                this.elements.modalImage.src = imageUrl;
+                this.elements.modalImage.alt = `Image for ${team.teamName}`;
+                this.elements.modalImage.classList.add('loaded'); // Ensure the image is visible
+            } else {
+                this.elements.modalImage.src = '';
+                this.elements.modalImage.alt = 'No image available';
+                this.elements.modalImage.classList.remove('loaded'); // Hide the image if no URL is available
+            }
+
             this.elements.modalTeamName.textContent = team.teamName;
             this.resetPanZoom();
         }

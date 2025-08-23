@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.pan = { x: 0, y: 0 };
             this.isPanning = false;
             this.startPan = { x: 0, y: 0 };
+            this.initialPan = { x: 0, y: 0 };
 
             this.elements = {
                 galleryGrid: document.getElementById('galleryGrid'),
@@ -176,8 +177,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
             this.isPanning = true;
-            this.startPan.x = clientX - this.pan.x;
-            this.startPan.y = clientY - this.pan.y;
+            this.startPan.x = clientX;
+            this.startPan.y = clientY;
+            this.initialPan.x = this.pan.x;
+            this.initialPan.y = this.pan.y;
             this.elements.imageContainer.classList.add('grabbing');
 
             // Prevent default behavior to avoid text selection or scrolling
@@ -191,9 +194,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
+            const dx = clientX - this.startPan.x;
+            const dy = clientY - this.startPan.y;
+
             // Calculate the new pan position
-            this.pan.x = clientX - this.startPan.x;
-            this.pan.y = clientY - this.startPan.y;
+            this.pan.x = this.initialPan.x + dx / this.zoomLevel;
+            this.pan.y = this.initialPan.y + dy / this.zoomLevel;
 
             this.applyTransform();
 
@@ -454,7 +460,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (e.touches.length === 2 && initialDistance) {
                     const currentDistance = getDistance(e.touches);
                     const scaleFactor = currentDistance / initialDistance;
-                    this.zoom(initialZoomLevel * scaleFactor);
+                    this.zoomLevel = Math.max(0.5, Math.min(initialZoomLevel * scaleFactor, 10));
+                    this.applyTransform();
                     e.preventDefault();
                 } else if (e.touches.length === 1) {
                     this.panDrag(e);

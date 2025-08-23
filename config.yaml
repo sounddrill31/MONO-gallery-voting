@@ -5,7 +5,10 @@ deadlines:
   open: "2025-08-24 10:00:00"
   close: "2025-08-24 19:00:00"
 show_countdown: true
+show_gallery: false # Set to false to hide carousel and gallery cards
+show_voting: true # Set to false to hide the vote button
+show_results: true # Set to true to show results button after voting ends
 hide_team_data: true # Set to true to hide team names and show rank based on a 'final' column
 footer:
-  text: "Made by (BCA) NeoTech Club © 2025"
+  text: "© 2025 (BCA) NeoTech Club, GCC"
   mono_link: "https://mono.layogtima.com/"

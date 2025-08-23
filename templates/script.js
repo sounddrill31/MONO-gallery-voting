@@ -46,12 +46,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         init() {
-            this.renderGallery();
+            // Handle gallery visibility
+            if (!this.config.show_gallery) {
+                const carouselWrapper = document.querySelector('.carousel-wrapper');
+                const galleryGrid = this.elements.galleryGrid;
+                const galleryHeading = document.querySelector('h3');
+                const hrs = document.querySelectorAll('hr');
+                
+                if (carouselWrapper) carouselWrapper.style.display = 'none';
+                if (galleryGrid) galleryGrid.style.display = 'none';
+                if (galleryHeading) galleryHeading.style.display = 'none';
+                hrs.forEach(hr => hr.style.display = 'none');
+            } else {
+                this.renderGallery();
+                this.initHeroCarousel();
+            }
+            
             this.setupEventListeners();
             this.handleURLParameters();
             this.setupCountdown();
             this.updateVoteLink();
-            this.initHeroCarousel();
             this.initShare();
             this.setupPinchToZoom();
             this.setupGestures();
@@ -297,6 +311,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const now = new Date().getTime();
                 let targetTime, title;
 
+                // Handle vote button visibility based on voting period and config
+                if (!this.config.show_voting || now < openTime || now >= closeTime) {
+                    this.elements.voteLink.classList.add('hidden');
+                } else {
+                    this.elements.voteLink.classList.remove('hidden');
+                }
+
                 if (now < openTime) {
                     targetTime = openTime;
                     title = "Voting Opens In";
@@ -306,7 +327,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     this.elements.countdown.innerHTML = "";
                     this.elements.countdownTitle.textContent = "Voting has ended.";
-                    this.elements.voteLink.classList.add('hidden');
+                    
+                    // Show results button if voting has ended and show_results is true
+                    if (this.config.show_results) {
+                        let resultsBtn = document.getElementById('resultsBtn');
+                        if (!resultsBtn) {
+                            resultsBtn = document.createElement('a');
+                            resultsBtn.id = 'resultsBtn';
+                            resultsBtn.href = 'stats.html';
+                            resultsBtn.className = 'mono-btn mono-btn-primary';
+                            resultsBtn.textContent = 'Show Results';
+                            this.elements.voteLink.parentNode.appendChild(resultsBtn);
+                        }
+                        resultsBtn.classList.remove('hidden');
+                    }
                     return;
                 }
 

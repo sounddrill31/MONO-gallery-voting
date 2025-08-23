@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{SITE_TITLE}} - Results</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+        * { font-family: 'Space Mono', monospace; }
+    </style>
+</head>
+<body class="bg-white text-black min-h-screen flex flex-col">
+
+    <header class="bg-black text-white p-4 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold tracking-wider">{{SITE_TITLE}} - Results</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="index.html" class="mono-btn mono-btn-ghost">Back to Gallery</a>
+                <button id="shareBtn" class="mono-btn mono-btn-ghost">Share</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-6 flex-grow">
+        <!-- Results Content Area -->
+        <section class="text-center mb-12">
+            <h2 class="text-2xl font-bold mb-8">Contest Results</h2>
+            
+            <!-- Results will be displayed here -->
+            <div id="resultsContainer" class="min-h-[50vh] flex items-center justify-center">
+                <p class="text-gray-600 text-lg">Results will be displayed here.</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Share Modal -->
+    <div id="shareModal" class="fixed inset-0 bg-black bg-opacity-80 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white text-black p-6 rounded-lg shadow-xl max-w-sm w-full relative">
+            <button id="closeShareModal" class="absolute top-2 right-3 text-3xl hover:text-gray-600 leading-none">&times;</button>
+            <h2 class="text-2xl font-bold mb-4 text-center">Share</h2>
+            <p class="text-sm text-gray-600 mb-4 text-center">Share this results page with others.</p>
+            <div class="flex mb-4">
+                <input id="shareUrlInput" type="text" readonly class="p-2 border border-black flex-grow bg-gray-100 text-sm">
+                <button id="copyUrlBtn" class="mono-btn mono-btn-primary text-sm !py-2 !px-4">Copy</button>
+            </div>
+            <div id="qrCodeContainer" class="w-full h-auto aspect-square mx-auto border-2 border-black p-2 bg-white"></div>
+        </div>
+    </div>
+
+    <footer class="bg-black text-white p-4">
+        <div class="max-w-7xl mx-auto text-center text-sm">
+            <p>{{FOOTER_TEXT}}</p>
+            <p>Made with <a href="{{MONO_LINK}}" target="_blank" rel="noopener noreferrer" class="underline hover:text-gray-400 transition-colors">MONO Design</a> in mind.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script>
+        // Basic share functionality for stats page
+        document.addEventListener('DOMContentLoaded', () => {
+            const shareBtn = document.getElementById('shareBtn');
+            const shareModal = document.getElementById('shareModal');
+            const closeShareModalBtn = document.getElementById('closeShareModal');
+            const shareUrlInput = document.getElementById('shareUrlInput');
+            const copyUrlBtn = document.getElementById('copyUrlBtn');
+            const qrCodeContainer = document.getElementById('qrCodeContainer');
+
+            if (shareBtn) {
+                shareBtn.addEventListener('click', () => {
+                    shareUrlInput.value = window.location.href;
+                    shareModal.classList.remove('hidden');
+                    shareModal.classList.add('flex');
+                    generateQRCode(window.location.href);
+                });
+            }
+
+            if (closeShareModalBtn) {
+                closeShareModalBtn.addEventListener('click', () => {
+                    shareModal.classList.add('hidden');
+                    shareModal.classList.remove('flex');
+                });
+            }
+
+            if (copyUrlBtn) {
+                copyUrlBtn.addEventListener('click', () => {
+                    shareUrlInput.select();
+                    document.execCommand('copy');
+                    copyUrlBtn.textContent = 'Copied!';
+                    setTimeout(() => {
+                        copyUrlBtn.textContent = 'Copy';
+                    }, 2000);
+                });
+            }
+
+            function generateQRCode(url) {
+                qrCodeContainer.innerHTML = '';
+                new QRCode(qrCodeContainer, {
+                    text: url,
+                    width: 256,
+                    height: 256,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            }
+        });
+    </script>
+</body>
+</html>

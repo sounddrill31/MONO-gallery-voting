@@ -355,6 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const caption = document.createElement('div');
                 caption.className = 'slide-caption';
+                caption.style.bottom = '4rem'; // Position higher to avoid dots overlap
                 caption.textContent = this.config.hide_team_data ? `Submission #${team.rank}` : team.teamName;
                 slide.appendChild(caption);
                 this.elements.carouselTrack.appendChild(slide);

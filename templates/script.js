@@ -46,7 +46,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         init() {
-            // Handle gallery visibility
+            // Handle gallery visibility and space utilization
+            const mainElement = document.querySelector('main');
+            const countdownSection = document.querySelector('section.text-center');
+            
             if (!this.config.show_gallery) {
                 const carouselWrapper = document.querySelector('.carousel-wrapper');
                 const galleryGrid = this.elements.galleryGrid;
@@ -57,6 +60,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (galleryGrid) galleryGrid.style.display = 'none';
                 if (galleryHeading) galleryHeading.style.display = 'none';
                 hrs.forEach(hr => hr.style.display = 'none');
+                
+                // Add classes for better space utilization without interfering with footer
+                if (countdownSection) {
+                    countdownSection.classList.add('center-content', 'section-spacing');
+                }
             } else {
                 this.renderGallery();
                 this.initHeroCarousel();

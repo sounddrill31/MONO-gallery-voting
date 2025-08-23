@@ -38,7 +38,6 @@ body {
     max-width: 1200px;
     margin: 0 auto;
     padding: 2rem;
-    min-height: 100vh;
 }
 
 /* Header */
@@ -1110,6 +1109,26 @@ main {
 
 footer {
     flex-shrink: 0;
+}
+
+/* Space utilization when sections are hidden */
+.center-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh;
+}
+
+.full-height-main {
+    min-height: calc(100vh - 180px); /* Subtract header and footer height */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.section-spacing {
+    margin: 4rem 0;
 }
 
 @media (max-width: 768px) {

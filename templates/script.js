@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+    let galleryInstance = null;
     const TEAMS_DATA_PLACEHOLDER = '{{TEAMS_DATA}}';
     const CONFIG_DATA_PLACEHOLDER = '{{CONFIG_DATA}}';
 
@@ -498,7 +499,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // In a generated file, these placeholders are replaced with actual JSON.
         const teams = TEAMS_DATA_PLACEHOLDER;
         const config = CONFIG_DATA_PLACEHOLDER;
-        new PhotoGallery(teams, config);
+        if (!galleryInstance) {
+            galleryInstance = new PhotoGallery(teams, config);
+        }
     } catch (e) {
         // Fallback for development when viewing the template directly
         console.log("Could not parse inline data, fetching from files...");

@@ -153,6 +153,14 @@ body {
     overflow: hidden;
 }
 
+.carousel-wrapper {
+    border: 2px solid var(--mono-gray-700); /* Rounded corner border */
+    border-radius: 12px; /* Rounded corners */
+    overflow: hidden; /* Clip anything inside */
+    box-shadow: var(--shadow); /* Add subtle shadow for Mono consistency */
+    margin-bottom: 20px; /* Add extra gap below the carousel wrapper */
+}
+
 .carousel-track {
     position: relative;
     width: 100%;
@@ -165,24 +173,38 @@ body {
 .carousel-slide {
     position: absolute;
     width: 400px;
-    height: 300px;
+    height: 100%; /* Ensure slides fit fully inside the wrapper */
     border-radius: 20px;
     overflow: hidden;
     cursor: pointer;
-    transition: transform 0.5s ease-out, opacity 0.5s ease-out; /* Updated animation */
-    box-shadow: var(--shadow-heavy);
-    border: 4px solid var(--mono-white);
-    background: var(--mono-white);
+    transition: none; /* Remove animation */
+    opacity: 0;
+    transform: translateX(0) translateZ(0); /* Instant switch */
+    z-index: 0;
+}
+
+.carousel-slide.active {
+    opacity: 1;
+    z-index: 10;
+}
+
+.carousel-slide.prev,
+.carousel-slide.next {
+    opacity: 0;
+    z-index: 0;
 }
 
 .carousel-slide:hover {
-    transform: none; /* Remove hover animation */
+    transform: none; /* Disable hover transform */
+    box-shadow: var(--shadow); /* Add subtle shadow for Mono consistency */
 }
 
 .carousel-slide img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    transition: none; /* Remove hover zoom effect */
+    border-radius: inherit; /* Match the parent border radius */
 }
 
 /* Stacked positioning */
@@ -711,31 +733,21 @@ body {
     left: 10%;
     width: 80%;
     height: 80%;
-    transition: transform 0.8s ease-in-out, opacity 0.8s ease-in-out;
-    background-size: cover;
-    background-position: center;
-    border-radius: 0.5rem;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    transition: none; /* Remove animation */
     opacity: 0;
-    overflow: hidden; /* Prevents content from breaking border-radius on hover */
+    transform: translateX(0) translateZ(0); /* Instant switch */
+    z-index: 0;
 }
 
 .carousel-slide.active {
-    transform: translateX(0) translateZ(0);
     opacity: 1;
     z-index: 10;
 }
 
-.carousel-slide.prev {
-    transform: translateX(-50%) translateZ(-200px);
-    opacity: 0.5;
-    z-index: 5;
-}
-
+.carousel-slide.prev,
 .carousel-slide.next {
-    transform: translateX(50%) translateZ(-200px);
-    opacity: 0.5;
-    z-index: 5;
+    opacity: 0;
+    z-index: 0;
 }
 
 .carousel-slide::after {
@@ -929,21 +941,6 @@ footer {
     outline-offset: 2px;
 }
 
-/* Hover effects for better interactivity */
-.carousel-slide:not(.active):hover {
-    transform: translateX(-180px) translateZ(-50px) scale(0.9) rotateY(20deg);
-    opacity: 0.9;
-    cursor: pointer;
-}
-
-.carousel-slide.next:not(.active):hover {
-    transform: translateX(180px) translateZ(-50px) scale(0.9) rotateY(-20deg);
-}
-
-.carousel-slide.active:hover {
-    transform: translateX(0) translateZ(20px) scale(1.02) rotateY(0deg);
-}
-
 /* Basic styles */
 body {
     font-family: 'Space Mono', monospace;
@@ -1048,6 +1045,7 @@ body {
     transition: opacity 1s ease-in-out;
     background-size: cover;
     background-position: center;
+    scale: 1.02;
 }
 
 .carousel-slide.active {

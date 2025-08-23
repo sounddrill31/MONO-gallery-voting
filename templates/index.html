@@ -38,16 +38,25 @@
         </section>
 
         <!-- Image Carousel -->
-        <section id="hero-carousel" class="mb-12 relative h-64 md:h-96 perspective-1000 group">
-            <div id="carousel-track" class="relative w-full h-full transform-style-3d">
-                <!-- Carousel slides will be injected here -->
-            </div>
-            <button id="carousel-prev" class="absolute top-1/2 left-4 transform -translate-y-1/8 mono-btn mono-btn-ghost z-10">&#8249;</button>
-            <button id="carousel-next" class="absolute top-1/2 right-4 transform -translate-y-1/8 mono-btn mono-btn-ghost z-10">&#8250;</button>
-            <div id="carousel-dots" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
-                <!-- Dots will be injected here -->
-            </div>
-        </section>
+        <div class="carousel-wrapper">
+            <section id="hero-carousel" class="relative h-64 md:h-96 perspective-1000 group">
+                <div id="carousel-track" class="relative w-full h-full transform-style-3d flex">
+                    <!-- Carousel slides will be injected here -->
+                </div>
+                <button id="carousel-prev" class="absolute top-1/2 left-4 transform -translate-y-1/8 mono-btn mono-btn-ghost z-10">&#8249;</button>
+                <button id="carousel-next" class="absolute top-1/2 right-4 transform -translate-y-1/8 mono-btn mono-btn-ghost z-10">&#8250;</button>
+                <div id="carousel-dots" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
+                    <!-- Dots will be injected here -->
+                </div>
+            </section>
+        </div>
+
+        <hr class="my-8 border-t border-gray-300">
+
+        <h3>Click on the Below Cards to See Student Submissions in Fullscreen Mode</h3>
+
+        <hr class="my-8 border-t border-gray-300">
+
 
         <!-- Gallery Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" id="galleryGrid">

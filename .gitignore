@@ -8,3 +8,5 @@ mono-*/
 *.csv
 public/
 dist/
+
+*.y*ml

@@ -166,21 +166,28 @@ document.addEventListener('DOMContentLoaded', () => {
             this.startPan.x = e.clientX - this.pan.x;
             this.startPan.y = e.clientY - this.pan.y;
             this.elements.imageContainer.classList.add('grabbing');
+
+            // Prevent default behavior to avoid text selection
+            e.preventDefault();
         }
 
         panDrag(e) {
             if (!this.isPanning) return;
-            e.preventDefault();
+
+            // Update pan values based on mouse movement
             this.pan.x = e.clientX - this.startPan.x;
             this.pan.y = e.clientY - this.startPan.y;
             this.applyTransform();
+
+            // Prevent default behavior to avoid unwanted side effects
+            e.preventDefault();
         }
 
         endPanDrag() {
             this.isPanning = false;
             this.elements.imageContainer.classList.remove('grabbing');
         }
-        
+
         handleWheelZoom(e) {
             e.preventDefault();
             const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
@@ -189,9 +196,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         handleURLParameters() {
             const params = new URLSearchParams(window.location.search);
-            const teamNumber = params.get('team');
-            if (teamNumber) {
-                const teamIndex = this.teams.findIndex(t => t.team_number === teamNumber);
+            const id = params.get('id');
+            if (id) {
+                const teamIndex = this.teams.findIndex(t => {
+                    if (this.config.hide_team_data) {
+                        return t.rank.toString() === id;
+                    } else {
+                        return t.team_number === id;
+                    }
+                });
                 if (teamIndex !== -1) {
                     this.openModal(teamIndex);
                 }
@@ -201,10 +214,11 @@ document.addEventListener('DOMContentLoaded', () => {
         updateURL(clear = false) {
             const url = new URL(window.location);
             if (clear || this.elements.modal.classList.contains('hidden')) {
-                url.searchParams.delete('team');
+                url.searchParams.delete('id');
             } else {
                 const team = this.teams[this.currentTeamIndex];
-                url.searchParams.set('team', team.team_number);
+                const id = this.config.hide_team_data ? team.rank : team.team_number;
+                url.searchParams.set('id', id);
             }
             history.pushState({}, '', url);
         }

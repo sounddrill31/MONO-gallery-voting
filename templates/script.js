@@ -369,6 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let currentSlide = 0;
             const slides = this.elements.carouselTrack.querySelectorAll('.carousel-slide');
             const dots = this.elements.carouselDots.querySelectorAll('.dot');
+            let carouselDebounceTimer = null;
 
             const updateCarousel = (newIndex) => {
                 currentSlide = (newIndex + slides.length) % slides.length;
@@ -389,11 +390,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             };
 
-            this.elements.carouselNextBtn.addEventListener('click', () => updateCarousel(currentSlide + 1));
-            this.elements.carouselPrevBtn.addEventListener('click', () => updateCarousel(currentSlide - 1));
+            const debouncedUpdateCarousel = (newIndex) => {
+                if (carouselDebounceTimer) {
+                    clearTimeout(carouselDebounceTimer);
+                }
+                carouselDebounceTimer = setTimeout(() => {
+                    updateCarousel(newIndex);
+                }, 150); // Very low delay - feels instant but prevents rapid clicks
+            };
+
+            this.elements.carouselNextBtn.addEventListener('click', () => debouncedUpdateCarousel(currentSlide + 1));
+            this.elements.carouselPrevBtn.addEventListener('click', () => debouncedUpdateCarousel(currentSlide - 1));
             this.elements.carouselDots.addEventListener('click', (e) => {
                 if (e.target.classList.contains('dot')) {
-                    updateCarousel(parseInt(e.target.dataset.index));
+                    debouncedUpdateCarousel(parseInt(e.target.dataset.index));
                 }
             });
 

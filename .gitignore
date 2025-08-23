@@ -1,1 +1,10 @@
 *.bak
+*.zip
+mono-*/
+
+# pixi environments
+.pixi/*
+!.pixi/config.toml
+*.csv
+public/
+dist/

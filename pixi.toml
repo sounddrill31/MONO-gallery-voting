@@ -1,0 +1,28 @@
+[workspace]
+authors = ["84176052+sounddrill31 <84176052+sounddrill31@users.noreply.github.com>"]
+channels = ["conda-forge"]
+name = "datagcc-photo-vote"
+platforms = ["win-64", "linux-64"]
+version = "0.1.0"
+
+[tasks]
+prep_yaml = "python generate_teams.py"
+generate = "python generate_site.py"
+download = "python downloader.py"
+prepare = "pixi run download && pixi run prep_yaml && pixi run generate"
+web= "echo 'Open http://localhost:8000 to see the web page!' && python -m 'http.server' 8000 -d 'dist'"
+start = "pixi run prepare && echo 'Open http://localhost:8000 to see the web page!' && python -m 'http.server' 8000 -d 'dist'"
+ci = "python ci.py"
+
+[dependencies]
+python = ">=3.13.5,<3.14"
+pyyaml = ">=6.0.2,<7"
+requests = ">=2.32.5,<3"
+pillow = ">=11.3.0,<12"
+libavif = ">=1.3.0,<2"
+aom = ">=3.9.1,<4"
+pillow-heif = ">=1.1.0,<2"
+
+[pypi-dependencies]
+pillow-avif-plugin = ">=1.5.2, <2"
+pymupdf = ">=1.26.3, <2"

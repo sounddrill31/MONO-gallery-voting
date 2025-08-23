@@ -5,6 +5,7 @@ import re
 import requests
 import subprocess
 
+
 def extract_sheet_id(url):
     """
     Extract the Google Sheet ID from the public Google Sheets URL.
@@ -13,6 +14,7 @@ def extract_sheet_id(url):
     if not match:
         raise ValueError("Invalid Google Sheets URL: Could not find sheet ID.")
     return match.group(1)
+
 
 def download_csv(sheet_id):
     """
@@ -24,6 +26,7 @@ def download_csv(sheet_id):
         raise RuntimeError(f"Failed to download CSV: HTTP {response.status_code}")
     return response.content
 
+
 def run_shell_command(command):
     """
     Run a shell command in the current directory.
@@ -33,10 +36,20 @@ def run_shell_command(command):
     if result.returncode != 0:
         raise RuntimeError(f"Command '{command}' failed with exit code {result.returncode}")
 
+
 def main():
     if len(sys.argv) != 2:
         print("Usage: ci.py <public_google_sheet_url>", file=sys.stderr)
         sys.exit(1)
+
+    # Delete data.csv if it exists to ensure a clean start
+    if os.path.exists("data.csv"):
+        try:
+            os.remove("data.csv")
+            print("Removed existing data.csv")
+        except OSError as e:
+            print(f"Error removing existing file: {e}", file=sys.stderr)
+            sys.exit(1) # Exit if we can't remove the old file
 
     sheet_url = sys.argv[1]
 
@@ -61,6 +74,7 @@ def main():
         sys.exit(4)
 
     print("Downloaded data.csv and successfully ran 'pixi run prepare'")
+
 
 if __name__ == "__main__":
     main()

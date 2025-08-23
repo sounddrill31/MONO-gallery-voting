@@ -3,11 +3,21 @@ import csv
 import os
 import yaml
 
+
 def generate_teams_yaml(csv_path='data.csv', yaml_path='teams.yaml'):
     """
     Reads team data from a CSV file, processes it, and writes it to a YAML file.
     Handles different submission image column formats.
     """
+    # Delete teams.yaml if it exists to ensure a clean start
+    if os.path.exists(yaml_path):
+        try:
+            os.remove(yaml_path)
+            print(f"Removed existing {yaml_path}")
+        except OSError as e:
+            print(f"Error removing existing file: {e}")
+            return # Exit if we can't remove the old file
+
     teams = []
     if not os.path.exists(csv_path):
         print(f"Error: {csv_path} not found.")
@@ -53,6 +63,7 @@ def generate_teams_yaml(csv_path='data.csv', yaml_path='teams.yaml'):
 
     print(f"Successfully generated {yaml_path} with {len(teams)} teams.")
 
+
 if __name__ == "__main__":
-    import yaml
     generate_teams_yaml()
+

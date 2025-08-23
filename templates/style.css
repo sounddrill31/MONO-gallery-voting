@@ -169,7 +169,7 @@ body {
     border-radius: 20px;
     overflow: hidden;
     cursor: pointer;
-    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all opacity 1s ease-in-out;
     box-shadow: var(--shadow-heavy);
     border: 4px solid var(--mono-white);
     background: var(--mono-white);
@@ -179,7 +179,6 @@ body {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: var(--transition);
 }
 
 /* Stacked positioning */
@@ -191,45 +190,17 @@ body {
 }
 
 .carousel-slide.active {
-    animation: slideInActive 0.7s cubic-bezier(0.4, 0, 0.2, 1);
     transform: translateX(0) translateZ(0) scale(1) rotateY(0deg);
     z-index: 3;
     opacity: 1;
     filter: brightness(1);
 }
 
-@keyframes slideInActive {
-    from {
-        transform: translateX(100px) translateZ(-100px) scale(0.85) rotateY(25deg);
-        opacity: 0.7;
-        filter: brightness(0.8);
-    }
-    to {
-        transform: translateX(0) translateZ(0) scale(1) rotateY(0deg);
-        opacity: 1;
-        filter: brightness(1);
-    }
-}
-
 .carousel-slide.next {
-    animation: slideInNext 0.7s cubic-bezier(0.4, 0, 0.2, 1);
     transform: translateX(180px) translateZ(-100px) scale(0.85) rotateY(-25deg);
     z-index: 1;
     opacity: 0.7;
     filter: brightness(0.8);
-}
-
-@keyframes slideInNext {
-    from {
-        transform: translateX(0) translateZ(0) scale(1) rotateY(0deg);
-        opacity: 1;
-        filter: brightness(1);
-    }
-    to {
-        transform: translateX(180px) translateZ(-100px) scale(0.85) rotateY(-25deg);
-        opacity: 0.7;
-        filter: brightness(0.8);
-    }
 }
 
 .carousel-slide.hidden {

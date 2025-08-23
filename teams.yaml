@@ -5,9 +5,3 @@ teams:
   - image/1/Photo.avif
   description: Submission from BSC.
   rank: 1
-- teamName: Team 25
-  team_number: '2'
-  images:
-  - image/2/Photo.avif
-  description: Submission from BBA.
-  rank: '10'

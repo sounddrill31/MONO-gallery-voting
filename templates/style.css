@@ -444,6 +444,11 @@ body {
     opacity: 0;
     transition: all 0.3s ease;
     border: 2px solid var(--mono-gray-300);
+    display: block;
+    max-width: none;
+    max-height: none;
+    transition: transform 0.3s ease-out;
+    will-change: transform;
 }
 
 #modalImage.loaded {
@@ -654,29 +659,56 @@ body {
     border-color: var(--mono-gray-800);
 }
 
+.mono-btn-ghost {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.mono-btn-ghost:hover {
+    background-color: rgba(255, 255, 255, 0.4);
+    color: white;
+}
+
 /* Hero Carousel */
+.perspective-1000 { perspective: 1000px; }
+.transform-style-3d { transform-style: preserve-3d; }
+
 #hero-carousel {
-    position: relative;
-    width: 100%;
     height: 50vh; /* Responsive height */
-    overflow: hidden;
-    background-color: var(--mono-gray-100);
 }
 
 .carousel-slide {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    transition: opacity 1s ease-in-out;
+    top: 10%;
+    left: 10%;
+    width: 80%;
+    height: 80%;
+    transition: transform 0.8s ease-in-out, opacity 0.8s, z-index 0.8s;
     background-size: cover;
     background-position: center;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    opacity: 0;
+    overflow: hidden; /* Prevents content from breaking border-radius on hover */
 }
 
 .carousel-slide.active {
+    transform: translateX(0) translateZ(0);
     opacity: 1;
+    z-index: 10;
+}
+
+.carousel-slide.prev {
+    transform: translateX(-50%) translateZ(-200px);
+    opacity: 0.5;
+    z-index: 5;
+}
+
+.carousel-slide.next {
+    transform: translateX(50%) translateZ(-200px);
+    opacity: 0.5;
+    z-index: 5;
 }
 
 .carousel-slide::after {
@@ -697,6 +729,19 @@ body {
     z-index: 2;
     font-size: 1.25rem;
     font-weight: 700;
+}
+
+#carousel-dots .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#carousel-dots .dot.active {
+    background-color: white;
 }
 
 /* Countdown Boxes */
@@ -1058,4 +1103,10 @@ footer {
     .countdown-box .value {
         font-size: 1.5rem;
     }
+}
+
+#qrCodeContainer canvas, #qrCodeContainer img {
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 1 / 1;
 }

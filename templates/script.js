@@ -28,6 +28,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 countdownTitle: document.getElementById('countdown-title'),
                 voteLink: document.getElementById('voteLink'),
                 heroCarousel: document.getElementById('hero-carousel'),
+                carouselTrack: document.getElementById('carousel-track'),
+                carouselNextBtn: document.getElementById('carousel-next'),
+                carouselPrevBtn: document.getElementById('carousel-prev'),
+                carouselDots: document.getElementById('carousel-dots'),
+                shareBtn: document.getElementById('shareBtn'),
+                shareModal: document.getElementById('shareModal'),
+                closeShareModalBtn: document.getElementById('closeShareModal'),
+                shareUrlInput: document.getElementById('shareUrlInput'),
+                copyUrlBtn: document.getElementById('copyUrlBtn'),
+                qrCodeContainer: document.getElementById('qrCodeContainer'),
             };
 
             this.init();
@@ -40,6 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.setupCountdown();
             this.updateVoteLink();
             this.initHeroCarousel();
+            this.initShare();
         }
 
         renderGallery() {
@@ -50,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.dataset.index = index;
                 card.innerHTML = `
                     <div class="overflow-hidden h-48">
-                        <img src="${team.image}" alt="${team.teamName}" class="w-full h-full object-cover">
+                        <img src="${team.images[0]}" alt="${team.teamName}" class="w-full h-full object-cover">
                     </div>
                     <div class="p-4">
                         <h3 class="font-bold text-lg truncate">${team.teamName}</h3>
@@ -251,27 +262,96 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (topTeams.length === 0) return;
 
+            this.elements.carouselTrack.innerHTML = '';
+            this.elements.carouselDots.innerHTML = '';
+
             topTeams.forEach((team, index) => {
                 const slide = document.createElement('div');
-                slide.className = `carousel-slide ${index === 0 ? 'active' : ''}`;
+                slide.className = 'carousel-slide';
                 slide.style.backgroundImage = `url('${team.images[0]}')`;
 
                 const caption = document.createElement('div');
                 caption.className = 'slide-caption';
-                caption.textContent = this.config.hide_team_data ? `Rank #${team.rank}` : team.teamName;
+                caption.textContent = this.config.hide_team_data ? `Submission #${team.rank}` : team.teamName;
                 slide.appendChild(caption);
+                this.elements.carouselTrack.appendChild(slide);
 
-                this.elements.heroCarousel.appendChild(slide);
+                const dot = document.createElement('button');
+                dot.className = 'dot';
+                dot.dataset.index = index;
+                this.elements.carouselDots.appendChild(dot);
             });
 
             let currentSlide = 0;
-            const slides = this.elements.heroCarousel.querySelectorAll('.carousel-slide');
+            const slides = this.elements.carouselTrack.querySelectorAll('.carousel-slide');
+            const dots = this.elements.carouselDots.querySelectorAll('.dot');
 
-            setInterval(() => {
-                slides[currentSlide].classList.remove('active');
-                currentSlide = (currentSlide + 1) % slides.length;
-                slides[currentSlide].classList.add('active');
-            }, 5000); // Change slide every 5 seconds
+            const updateCarousel = (newIndex) => {
+                currentSlide = (newIndex + slides.length) % slides.length;
+
+                slides.forEach((slide, index) => {
+                    slide.classList.remove('active', 'prev', 'next');
+                    if (index === currentSlide) {
+                        slide.classList.add('active');
+                    } else if (index === (currentSlide - 1 + slides.length) % slides.length) {
+                        slide.classList.add('prev');
+                    } else if (index === (currentSlide + 1) % slides.length) {
+                        slide.classList.add('next');
+                    }
+                });
+
+                dots.forEach((dot, index) => {
+                    dot.classList.toggle('active', index === currentSlide);
+                });
+            };
+
+            this.elements.carouselNextBtn.addEventListener('click', () => updateCarousel(currentSlide + 1));
+            this.elements.carouselPrevBtn.addEventListener('click', () => updateCarousel(currentSlide - 1));
+            this.elements.carouselDots.addEventListener('click', (e) => {
+                if (e.target.classList.contains('dot')) {
+                    updateCarousel(parseInt(e.target.dataset.index));
+                }
+            });
+
+            setInterval(() => updateCarousel(currentSlide + 1), 5000);
+            updateCarousel(0);
+        }
+
+        initShare() {
+            if (!this.elements.shareBtn) return;
+
+            this.elements.shareBtn.addEventListener('click', () => {
+                this.elements.shareUrlInput.value = window.location.href;
+                this.elements.shareModal.classList.remove('hidden');
+                this.elements.shareModal.classList.add('flex');
+                this.generateQRCode(window.location.href);
+            });
+
+            this.elements.closeShareModalBtn.addEventListener('click', () => {
+                this.elements.shareModal.classList.add('hidden');
+                this.elements.shareModal.classList.remove('flex');
+            });
+
+            this.elements.copyUrlBtn.addEventListener('click', () => {
+                this.elements.shareUrlInput.select();
+                document.execCommand('copy');
+                this.elements.copyUrlBtn.textContent = 'Copied!';
+                setTimeout(() => {
+                    this.elements.copyUrlBtn.textContent = 'Copy';
+                }, 2000);
+            });
+        }
+
+        generateQRCode(url) {
+            this.elements.qrCodeContainer.innerHTML = '';
+            new QRCode(this.elements.qrCodeContainer, {
+                text: url,
+                width: 256,
+                height: 256,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
         }
     }
 

@@ -19,15 +19,13 @@
             <div>
                 <h1 class="text-xl font-bold tracking-wider">{{SITE_TITLE}}</h1>
             </div>
+            <div class="flex items-center gap-4">
+                <button id="shareBtn" class="mono-btn mono-btn-ghost">Share</button>
+            </div>
         </div>
     </header>
 
     <main class="max-w-7xl mx-auto p-6 flex-grow">
-        <!-- Image Carousel -->
-        <section id="hero-carousel" class="mb-12 relative h-64 md:h-96 rounded overflow-hidden shadow-lg">
-            <!-- Carousel slides will be injected here -->
-        </section>
-
         <!-- Countdown and Voting -->
         <section class="text-center mb-12">
             <h2 id="countdown-title" class="text-lg font-bold mb-4"></h2>
@@ -37,6 +35,18 @@
             <a id="voteLink" href="#" target="_blank" class="mono-btn mono-btn-primary">
                 Vote Now
             </a>
+        </section>
+
+        <!-- Image Carousel -->
+        <section id="hero-carousel" class="mb-12 relative h-64 md:h-96 perspective-1000 group">
+            <div id="carousel-track" class="relative w-full h-full transform-style-3d">
+                <!-- Carousel slides will be injected here -->
+            </div>
+            <button id="carousel-prev" class="absolute top-1/2 left-4 transform -translate-y-1/2 mono-btn mono-btn-ghost z-10">&#8249;</button>
+            <button id="carousel-next" class="absolute top-1/2 right-4 transform -translate-y-1/2 mono-btn mono-btn-ghost z-10">&#8250;</button>
+            <div id="carousel-dots" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
+                <!-- Dots will be injected here -->
+            </div>
         </section>
 
         <!-- Gallery Grid -->
@@ -63,12 +73,29 @@
                 <div class="max-w-4xl mx-auto flex justify-between items-center">
                     <div id="modalTeamName" class="text-lg font-bold"></div>
                     <div id="image-controls" class="flex items-center gap-2">
-                         <button id="zoomInBtn" class="mono-btn" title="Zoom In (+)">Zoom In</button>
-                         <button id="zoomOutBtn" class="mono-btn" title="Zoom Out (-)">Zoom Out</button>
+                         <button id="zoomInBtn" class="mono-btn" title="Zoom In (+)">+</button>
+                         <button id="zoomOutBtn" class="mono-btn" title="Zoom Out (-)">-</button>
                          <button id="resetPanZoomBtn" class="mono-btn" title="Reset (0)">Reset</button>
+                    </div>
+                    <div class="text-xs text-gray-400 hidden md:block">
+                        Scroll to zoom, drag to pan. Use +/- keys & arrows.
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Share Modal -->
+    <div id="shareModal" class="fixed inset-0 bg-black bg-opacity-80 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white text-black p-6 rounded-lg shadow-xl max-w-sm w-full relative">
+            <button id="closeShareModal" class="absolute top-2 right-3 text-3xl hover:text-gray-600 leading-none">&times;</button>
+            <h2 class="text-2xl font-bold mb-4 text-center">Share</h2>
+            <p class="text-sm text-gray-600 mb-4 text-center">Share this page with others.</p>
+            <div class="flex mb-4">
+                <input id="shareUrlInput" type="text" readonly class="p-2 border border-black flex-grow bg-gray-100 text-sm">
+                <button id="copyUrlBtn" class="mono-btn mono-btn-primary text-sm !py-2 !px-4">Copy</button>
+            </div>
+            <div id="qrCodeContainer" class="w-full h-auto aspect-square mx-auto border-2 border-black p-2 bg-white"></div>
         </div>
     </div>
 
@@ -79,6 +106,7 @@
         </div>
     </footer>
 
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

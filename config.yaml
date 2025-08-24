@@ -6,7 +6,7 @@ voting_forms_url: "https://forms.gle/your-form-id-voting"
 deadlines:
   submit_open: "2025-08-21 14:30:00" 
   submit_close: "2025-08-21 16:00:00" 
-  voting_open: "2025-08-25 9:00:00"
+  voting_open: "2025-08-25 10:30:00"
   voting_close: "2025-08-25 19:00:00"
   # Optional: set the time when the results link/button should appear
   # If not set and show_results is true, results will show immediately after voting ends

@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
             this.isPanning = false;
             this.startPan = { x: 0, y: 0 };
             this.initialPan = { x: 0, y: 0 };
+            this.phase = 'none';
+            this.phaseReloadTimer = null;
 
             this.elements = {
                 galleryGrid: document.getElementById('galleryGrid'),
@@ -40,28 +42,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 shareUrlInput: document.getElementById('shareUrlInput'),
                 copyUrlBtn: document.getElementById('copyUrlBtn'),
                 qrCodeContainer: document.getElementById('qrCodeContainer'),
+                featuresSection: document.getElementById('features-section'),
+                featuresGrid: document.getElementById('features-grid'),
             };
 
             this.init();
         }
 
         init() {
-            // Determine current phase based on config deadlines and current time
-            const now = new Date().getTime();
-            const deadlines = this.config.deadlines;
-            const submitOpen = deadlines.submit_open ? new Date(deadlines.submit_open).getTime() : null;
-            const submitClose = deadlines.submit_close ? new Date(deadlines.submit_close).getTime() : null;
-            const votingOpen = deadlines.voting_open ? new Date(deadlines.voting_open).getTime() : null;
-            const votingClose = deadlines.voting_close ? new Date(deadlines.voting_close).getTime() : null;
-
-            let phase = 'none';
-            if (submitOpen && now >= submitOpen && submitClose && now < submitClose) {
-                phase = 'submission';
-            } else if (votingOpen && now >= votingOpen && votingClose && now < votingClose) {
-                phase = 'voting';
-            } else if (votingClose && now >= votingClose) {
-                phase = 'results';
-            }
+            // Determine current phase
+            const now = Date.now();
+            this.phase = this.determinePhase(now);
+            // Schedule a reload exactly when the next phase change boundary occurs
+            this.schedulePhaseChangeReload(now);
 
             // Handle gallery and carousel visibility based on phase and config
             const mainElement = document.querySelector('main');
@@ -75,9 +68,9 @@ document.addEventListener('DOMContentLoaded', () => {
             let showGallery = false;
             if (this.config.show_gallery === 'all') {
                 showGallery = true;
-            } else if (this.config.show_gallery === 'submission' && phase === 'submission') {
+            } else if (this.config.show_gallery === 'submission' && this.phase === 'submission') {
                 showGallery = true;
-            } else if (this.config.show_gallery === 'voting' && phase === 'voting') {
+            } else if (this.config.show_gallery === 'voting' && this.phase === 'voting') {
                 showGallery = true;
             }
 
@@ -109,22 +102,22 @@ document.addEventListener('DOMContentLoaded', () => {
             // Hide by default
             actionBtn.classList.add('hidden');
             const showSubmit = (typeof this.config.show_submit === 'undefined') ? true : this.config.show_submit;
-            if (phase === 'submission' && showSubmit) {
+            if (this.phase === 'submission' && showSubmit) {
                 actionBtn.textContent = 'Submit Photo';
                 actionBtn.href = this.config.submission_forms_url || '#';
                 actionBtn.classList.remove('hidden');
-            } else if (phase === 'voting' && this.config.show_voting) {
+            } else if (this.phase === 'voting' && this.config.show_voting) {
                 actionBtn.textContent = 'Vote Now';
                 actionBtn.href = this.config.voting_forms_url || '#';
                 actionBtn.classList.remove('hidden');
-            } else if (phase === 'results' && this.config.show_results) {
+            } else if (this.phase === 'results' && this.config.show_results) {
                 actionBtn.textContent = 'Results';
                 actionBtn.href = 'stats.html';
                 actionBtn.classList.remove('hidden');
             }
 
             // Results button visibility
-            if (phase === 'results' && this.config.show_results) {
+            if (this.phase === 'results' && this.config.show_results) {
                 let resultsBtn = document.getElementById('resultsBtn');
                 if (!resultsBtn) {
                     resultsBtn = document.createElement('a');
@@ -150,10 +143,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (this.config.show_countdown === 'all') {
                     this.elements.countdown.style.display = '';
                     this.elements.countdownTitle.style.display = '';
-                } else if (this.config.show_countdown === 'submission' && phase === 'submission') {
+                } else if (this.config.show_countdown === 'submission' && this.phase === 'submission') {
                     this.elements.countdown.style.display = '';
                     this.elements.countdownTitle.style.display = '';
-                } else if (this.config.show_countdown === 'voting' && phase === 'voting') {
+                } else if (this.config.show_countdown === 'voting' && this.phase === 'voting') {
                     this.elements.countdown.style.display = '';
                     this.elements.countdownTitle.style.display = '';
                 } else {
@@ -161,6 +154,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     this.elements.countdownTitle.style.display = 'none';
                 }
             }
+
+            // Features visibility / rendering
+            this.applyFeaturesVisibility();
 
             this.setupEventListeners();
             this.handleURLParameters();
@@ -170,6 +166,100 @@ document.addEventListener('DOMContentLoaded', () => {
             this.setupPinchToZoom();
             this.setupGestures();
             this.setupDownloadButton();
+        }
+
+        applyFeaturesVisibility() {
+            const flag = this.config.show_features || 'none';
+            const features = Array.isArray(this.config.features) ? this.config.features : [];
+            const hasFeatures = features.length > 0;
+            if (!this.elements.featuresSection) return;
+
+            // Determine if we should show based on phase & flag
+            let show = false;
+            if (hasFeatures) {
+                if (flag === 'all') show = true;
+                else if (flag === 'submission' && this.phase === 'submission') show = true;
+                else if (flag === 'voting' && this.phase === 'voting') show = true;
+            }
+            if (!show) {
+                this.elements.featuresSection.classList.add('hidden');
+                return;
+            }
+
+            // Render only once or if grid empty
+            if (this.elements.featuresGrid && this.elements.featuresGrid.children.length === 0) {
+                features.forEach(f => {
+                    const card = document.createElement('div');
+                    card.className = 'feature-card';
+                    card.innerHTML = `
+                        <h3>${(f.title || '').replace(/</g,'&lt;')}</h3>
+                        <p>${(f.description || '').replace(/</g,'&lt;')}</p>
+                    `;
+                    this.elements.featuresGrid.appendChild(card);
+                });
+            }
+            // Dynamically set optimal columns to reduce vertical scroll
+            this.setFeatureGridColumns(features.length);
+            this.elements.featuresSection.classList.remove('hidden');
+        }
+
+        // Decide optimal columns given feature count to minimize vertical scroll while maintaining readable width
+        setFeatureGridColumns(count) {
+            if (!this.elements.featuresGrid) return;
+            let cols = 1;
+            if (count === 1) cols = 1;
+            else if (count === 2) cols = 2;
+            else if (count === 3) cols = 3;
+            else if (count === 4) cols = 2; // 2x2 layout looks better than a very short 4-wide row on desktop
+            else if (count >= 5 && count <= 6) cols = 3;
+            else if (count >= 7 && count <= 8) cols = 4;
+            else if (count === 9) cols = 3; // perfect square 3x3
+            else if (count === 10) cols = 4; // 3 rows: 4,4,2 (last centered by gap) acceptable
+            else if (count > 10) cols = 4;
+            this.elements.featuresGrid.setAttribute('data-cols', cols.toString());
+        }
+
+        // Determine phase given a timestamp
+        determinePhase(nowTs) {
+            const d = this.config.deadlines || {};
+            const submitOpen = d.submit_open ? new Date(d.submit_open).getTime() : null;
+            const submitClose = d.submit_close ? new Date(d.submit_close).getTime() : null;
+            const votingOpen = d.voting_open ? new Date(d.voting_open).getTime() : null;
+            const votingClose = d.voting_close ? new Date(d.voting_close).getTime() : null;
+
+            if (submitOpen && nowTs < submitOpen) return 'pre-submission';
+            if (submitOpen && submitClose && nowTs >= submitOpen && nowTs < submitClose) return 'submission';
+            if (votingOpen && nowTs < votingOpen) return 'between';
+            if (votingOpen && votingClose && nowTs >= votingOpen && nowTs < votingClose) return 'voting';
+            if (votingClose && nowTs >= votingClose) return 'results';
+            return 'none';
+        }
+
+        // Schedule a page reload exactly at the next phase transition boundary
+        schedulePhaseChangeReload(nowTs) {
+            if (this.phaseReloadTimer) {
+                clearTimeout(this.phaseReloadTimer);
+                this.phaseReloadTimer = null;
+            }
+            const d = this.config.deadlines || {};
+            const times = [d.submit_open, d.submit_close, d.voting_open, d.voting_close, d.results]
+                .filter(Boolean)
+                .map(t => new Date(t).getTime())
+                .filter(t => t > nowTs) // future only
+                .sort((a,b)=>a-b);
+            if (!times.length) return; // nothing upcoming
+            const nextBoundary = times[0];
+            const delay = Math.max(0, nextBoundary - nowTs + 1000); // +1s buffer
+            this.phaseReloadTimer = setTimeout(() => {
+                // Double-check phase actually changed before reloading
+                const newPhase = this.determinePhase(Date.now());
+                if (newPhase !== this.phase) {
+                    window.location.reload();
+                } else {
+                    // If not changed (edge), schedule again
+                    this.schedulePhaseChangeReload(Date.now());
+                }
+            }, delay);
         }
 
         renderGallery() {
@@ -603,15 +693,40 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         generateQRCode(url) {
-            this.elements.qrCodeContainer.innerHTML = '';
-            new QRCode(this.elements.qrCodeContainer, {
+            if (!this.elements.qrCodeContainer) return;
+            const container = this.elements.qrCodeContainer;
+            const wrapper = container.parentElement;
+            // Use wrapper's inner box size (minus padding) for QR size
+            let wrapperSize = 300;
+            if (wrapper) {
+                const cs = getComputedStyle(wrapper);
+                const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+                wrapperSize = wrapper.clientWidth - padX;
+            }
+            const size = Math.max(120, Math.min(320, wrapperSize));
+            container.innerHTML = '';
+            new QRCode(container, {
                 text: url,
-                width: 256,
-                height: 256,
+                width: size,
+                height: size,
                 colorDark: "#000000",
                 colorLight: "#ffffff",
                 correctLevel: QRCode.CorrectLevel.H
             });
+            // Store last URL for resize regeneration
+            this._lastQrUrl = url;
+            if (!this._qrResizeHandler) {
+                this._qrResizeHandler = () => {
+                    // Debounce
+                    clearTimeout(this._qrResizeTimer);
+                    this._qrResizeTimer = setTimeout(() => {
+                        if (this.elements.shareModal && !this.elements.shareModal.classList.contains('hidden')) {
+                            this.generateQRCode(this._lastQrUrl || window.location.href);
+                        }
+                    }, 150);
+                };
+                window.addEventListener('resize', this._qrResizeHandler);
+            }
         }
 
         setupGestures() {

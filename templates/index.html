@@ -14,25 +14,32 @@
 </head>
 <body class="bg-white text-black min-h-screen flex flex-col">
 
-    <header class="bg-black text-white p-4 sticky top-0 z-30">
+    <header class="bg-white text-black p-4 sticky top-0 z-30 border-b border-black site-header">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <div>
                 <h1 class="text-xl font-bold tracking-wider">{{SITE_TITLE}}</h1>
             </div>
             <div class="flex items-center gap-4">
-                <button id="shareBtn" class="mono-btn mono-btn-ghost">Share</button>
+                <button id="shareBtn" class="mono-btn mono-btn-ghost border border-black hover:bg-black hover:text-white transition-colors">Share</button>
             </div>
         </div>
     </header>
 
     <main class="max-w-7xl mx-auto p-6 flex-grow">
         <!-- Countdown and Voting -->
-        <section class="text-center mb-12">
+    <section id="timeline-section" class="text-center mb-10 md:mb-12">
             <h2 id="countdown-title" class="text-lg font-bold mb-4"></h2>
             <div id="countdown" class="flex justify-center gap-4 mb-6">
                 <!-- Countdown boxes will be generated here -->
             </div>
             <a id="actionBtn" href="#" target="_blank" class="mono-btn mono-btn-primary hidden"></a>
+        </section>
+
+        <!-- Features Section -->
+        <section id="features-section" class="my-12 hidden">
+            <div id="features-grid" class="gap-8">
+                <!-- Feature cards will be injected here -->
+            </div>
         </section>
 
         <!-- Image Carousel -->
@@ -99,7 +106,7 @@
 
     <!-- Share Modal -->
     <div id="shareModal" class="fixed inset-0 bg-black bg-opacity-80 z-50 hidden items-center justify-center p-4">
-        <div class="bg-white text-black p-6 rounded-lg shadow-xl max-w-sm w-full relative">
+        <div class="bg-white text-black p-6 rounded-lg shadow-xl max-w-sm w-full relative share-modal-inner">
             <button id="closeShareModal" class="absolute top-2 right-3 text-3xl hover:text-gray-600 leading-none">&times;</button>
             <h2 class="text-2xl font-bold mb-4 text-center">Share</h2>
             <p class="text-sm text-gray-600 mb-4 text-center">Share this page with others.</p>
@@ -107,14 +114,16 @@
                 <input id="shareUrlInput" type="text" readonly class="p-2 border border-black flex-grow bg-gray-100 text-sm">
                 <button id="copyUrlBtn" class="mono-btn mono-btn-primary text-sm !py-2 !px-4">Copy</button>
             </div>
-            <div id="qrCodeContainer" class="w-full h-auto aspect-square mx-auto border-2 border-black p-2 bg-white"></div>
+            <div class="qr-wrapper mx-auto">
+                <div id="qrCodeContainer" class="qr-code"></div>
+            </div>
         </div>
     </div>
 
-    <footer class="bg-black text-white p-4">
-        <div class="max-w-7xl mx-auto text-center text-sm">
-            <p>{{FOOTER_TEXT}}</p>
-            <p>Made with <a href="{{MONO_LINK}}" target="_blank" rel="noopener noreferrer" class="underline hover:text-gray-400 transition-colors">MONO Design</a> in mind.</p>
+    <footer class="bg-white text-black p-6 mt-16 border-t border-black site-footer">
+        <div class="max-w-7xl mx-auto text-center text-xs md:text-sm tracking-wide leading-relaxed">
+            <p class="font-bold">{{FOOTER_TEXT}}</p>
+            <p class="mt-2">Made with <a href="{{MONO_LINK}}" target="_blank" rel="noopener noreferrer" class="underline hover:bg-black hover:text-white transition-colors px-1">MONO Design</a> in mind.</p>
         </div>
     </footer>
 

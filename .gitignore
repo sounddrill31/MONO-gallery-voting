@@ -10,3 +10,6 @@ public/
 dist/
 
 *.y*ml
+
+#temp folder for downloads
+photos/* 

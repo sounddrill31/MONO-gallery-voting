@@ -46,22 +46,46 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         init() {
-            // Handle gallery visibility and space utilization
+            // Determine current phase based on config deadlines and current time
+            const now = new Date().getTime();
+            const deadlines = this.config.deadlines;
+            const submitOpen = deadlines.submit_open ? new Date(deadlines.submit_open).getTime() : null;
+            const submitClose = deadlines.submit_close ? new Date(deadlines.submit_close).getTime() : null;
+            const votingOpen = deadlines.voting_open ? new Date(deadlines.voting_open).getTime() : null;
+            const votingClose = deadlines.voting_close ? new Date(deadlines.voting_close).getTime() : null;
+
+            let phase = 'none';
+            if (submitOpen && now >= submitOpen && submitClose && now < submitClose) {
+                phase = 'submission';
+            } else if (votingOpen && now >= votingOpen && votingClose && now < votingClose) {
+                phase = 'voting';
+            } else if (votingClose && now >= votingClose) {
+                phase = 'results';
+            }
+
+            // Handle gallery and carousel visibility based on phase and config
             const mainElement = document.querySelector('main');
             const countdownSection = document.querySelector('section.text-center');
-            
-            if (!this.config.show_gallery) {
-                const carouselWrapper = document.querySelector('.carousel-wrapper');
-                const galleryGrid = this.elements.galleryGrid;
-                const galleryHeading = document.querySelector('h3');
-                const hrs = document.querySelectorAll('hr');
-                
+            const carouselWrapper = document.querySelector('.carousel-wrapper');
+            const galleryGrid = this.elements.galleryGrid;
+            const galleryHeading = document.querySelector('h3');
+            const hrs = document.querySelectorAll('hr');
+
+            // Gallery visibility logic
+            let showGallery = false;
+            if (this.config.show_gallery === 'all') {
+                showGallery = true;
+            } else if (this.config.show_gallery === 'submission' && phase === 'submission') {
+                showGallery = true;
+            } else if (this.config.show_gallery === 'voting' && phase === 'voting') {
+                showGallery = true;
+            }
+
+            if (!showGallery) {
                 if (carouselWrapper) carouselWrapper.style.display = 'none';
                 if (galleryGrid) galleryGrid.style.display = 'none';
                 if (galleryHeading) galleryHeading.style.display = 'none';
                 hrs.forEach(hr => hr.style.display = 'none');
-                
-                // Add classes for better space utilization without interfering with footer
                 if (countdownSection) {
                     countdownSection.classList.add('center-content', 'section-spacing');
                 }
@@ -69,7 +93,73 @@ document.addEventListener('DOMContentLoaded', () => {
                 this.renderGallery();
                 this.initHeroCarousel();
             }
-            
+
+            // Unified button for Voting/Submit
+            let actionBtn = document.getElementById('actionBtn');
+            if (!actionBtn) {
+                actionBtn = document.createElement('a');
+                actionBtn.id = 'actionBtn';
+                actionBtn.className = 'mono-btn mono-btn-primary';
+                // Insert in same location as voteLink if possible
+                if (this.elements.voteLink && this.elements.voteLink.parentNode) {
+                    this.elements.voteLink.parentNode.appendChild(actionBtn);
+                } else if (document.body) {
+                    document.body.appendChild(actionBtn);
+                }
+            }
+            // Hide by default
+            actionBtn.classList.add('hidden');
+            // Show and configure for submission phase
+            const showSubmit = (typeof this.config.show_submit === 'undefined') ? true : this.config.show_submit;
+            if (phase === 'submission' && showSubmit) {
+                actionBtn.textContent = 'Submit Photo';
+                actionBtn.href = this.config.submission_forms_url || '#';
+                actionBtn.classList.remove('hidden');
+            } else if (phase === 'voting' && this.config.show_voting) {
+                actionBtn.textContent = 'Vote Now';
+                actionBtn.href = this.config.voting_forms_url || '#';
+                actionBtn.classList.remove('hidden');
+            }
+
+            // Results button visibility
+            if (phase === 'results' && this.config.show_results) {
+                let resultsBtn = document.getElementById('resultsBtn');
+                if (!resultsBtn) {
+                    resultsBtn = document.createElement('a');
+                    resultsBtn.id = 'resultsBtn';
+                    resultsBtn.href = 'stats.html';
+                    resultsBtn.className = 'mono-btn mono-btn-primary';
+                    resultsBtn.textContent = 'Show Results';
+                    if (this.elements.voteLink && this.elements.voteLink.parentNode) {
+                        this.elements.voteLink.parentNode.appendChild(resultsBtn);
+                    }
+                }
+                resultsBtn.classList.remove('hidden');
+            } else {
+                const resultsBtn = document.getElementById('resultsBtn');
+                if (resultsBtn) resultsBtn.classList.add('hidden');
+            }
+
+            // Countdown visibility
+            if (this.elements.countdown && this.elements.countdownTitle) {
+                if (this.config.show_countdown === 'none') {
+                    this.elements.countdown.style.display = 'none';
+                    this.elements.countdownTitle.style.display = 'none';
+                } else if (this.config.show_countdown === 'all') {
+                    this.elements.countdown.style.display = '';
+                    this.elements.countdownTitle.style.display = '';
+                } else if (this.config.show_countdown === 'submission' && phase === 'submission') {
+                    this.elements.countdown.style.display = '';
+                    this.elements.countdownTitle.style.display = '';
+                } else if (this.config.show_countdown === 'voting' && phase === 'voting') {
+                    this.elements.countdown.style.display = '';
+                    this.elements.countdownTitle.style.display = '';
+                } else {
+                    this.elements.countdown.style.display = 'none';
+                    this.elements.countdownTitle.style.display = 'none';
+                }
+            }
+
             this.setupEventListeners();
             this.handleURLParameters();
             this.setupCountdown();
@@ -306,66 +396,99 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         setupCountdown() {
-            if (!this.config.show_countdown) {
-                if (this.elements.countdown) this.elements.countdown.style.display = 'none';
-                if (this.elements.countdownTitle) this.elements.countdownTitle.style.display = 'none';
+            const { deadlines, show_countdown, show_results } = this.config;
+            const { countdown, countdownTitle } = this.elements;
+
+            if (!show_countdown || show_countdown === 'none') {
+                if (countdown) countdown.style.display = 'none';
+                if (countdownTitle) countdownTitle.style.display = 'none';
                 return;
             }
 
-            const openTime = new Date(this.config.deadlines.open).getTime();
-            const closeTime = new Date(this.config.deadlines.close).getTime();
-
             const update = () => {
                 const now = new Date().getTime();
-                let targetTime, title;
+                const submitOpen = deadlines.submit_open ? new Date(deadlines.submit_open).getTime() : null;
+                const submitClose = deadlines.submit_close ? new Date(deadlines.submit_close).getTime() : null;
+                const votingOpen = deadlines.voting_open ? new Date(deadlines.voting_open).getTime() : null;
+                const votingClose = deadlines.voting_close ? new Date(deadlines.voting_close).getTime() : null;
+                const resultsTime = deadlines.results ? new Date(deadlines.results).getTime() : null;
 
-                // Handle vote button visibility based on voting period and config
-                if (!this.config.show_voting || now < openTime || now >= closeTime) {
-                    this.elements.voteLink.classList.add('hidden');
+                let targetTime = null;
+                let title = "";
+                let phase = 'none';
+
+                if (submitOpen && now < submitOpen) {
+                    targetTime = submitOpen;
+                    title = "Submission Opens In";
+                    phase = 'before-submission';
+                } else if (submitClose && now < submitClose) {
+                    targetTime = submitClose;
+                    title = "Submission Closes In";
+                    phase = 'submission';
+                } else if (votingOpen && now < votingOpen) {
+                    targetTime = votingOpen;
+                    title = "Voting Opens In";
+                    phase = 'before-voting';
+                } else if (votingClose && now < votingClose) {
+                    targetTime = votingClose;
+                    title = "Voting Closes In";
+                    phase = 'voting';
+                } else if (resultsTime && now < resultsTime) {
+                    targetTime = resultsTime;
+                    title = "Results Revealed In";
+                    phase = 'before-results';
                 } else {
-                    this.elements.voteLink.classList.remove('hidden');
+                    phase = 'ended';
                 }
 
-                if (now < openTime) {
-                    targetTime = openTime;
-                    title = "Voting Opens In";
-                } else if (now < closeTime) {
-                    targetTime = closeTime;
-                    title = "Voting Closes In";
-                } else {
-                    this.elements.countdown.innerHTML = "";
-                    this.elements.countdownTitle.textContent = "Voting has ended.";
-                    
-                    // Show results button if voting has ended and show_results is true
-                    if (this.config.show_results) {
-                        let resultsBtn = document.getElementById('resultsBtn');
-                        if (!resultsBtn) {
-                            resultsBtn = document.createElement('a');
-                            resultsBtn.id = 'resultsBtn';
-                            resultsBtn.href = 'stats.html';
-                            resultsBtn.className = 'mono-btn mono-btn-primary';
-                            resultsBtn.textContent = 'Show Results';
-                            this.elements.voteLink.parentNode.appendChild(resultsBtn);
-                        }
-                        resultsBtn.classList.remove('hidden');
-                    }
+                // Countdown visibility based on config
+                const isVisible = show_countdown === 'all' ||
+                                  (show_countdown === 'submission' && (phase === 'before-submission' || phase === 'submission')) ||
+                                  (show_countdown === 'voting' && (phase === 'before-voting' || phase === 'voting'));
+
+                if (!isVisible) {
+                    if (countdown) countdown.style.display = 'none';
+                    if (countdownTitle) countdownTitle.style.display = 'none';
                     return;
                 }
+                
+                if (countdown) countdown.style.display = 'flex';
+                if (countdownTitle) countdownTitle.style.display = 'block';
 
-                this.elements.countdownTitle.textContent = title;
-                const distance = targetTime - now;
+                if (targetTime) {
+                    countdownTitle.textContent = title;
+                    const distance = targetTime - now;
 
-                const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                    if (distance < 0) {
+                        // In case of a slight delay, just show 0
+                        countdown.innerHTML = `
+                            <div class="countdown-box"><div class="value">0</div><div class="label">Days</div></div>
+                            <div class="countdown-box"><div class="value">0</div><div class="label">Hours</div></div>
+                            <div class="countdown-box"><div class="value">0</div><div class="label">Minutes</div></div>
+                            <div class="countdown-box"><div class="value">0</div><div class="label">Seconds</div></div>
+                        `;
+                        return;
+                    }
 
-                this.elements.countdown.innerHTML = `
-                    <div class="countdown-box"><div class="value">${days}</div><div class="label">Days</div></div>
-                    <div class="countdown-box"><div class="value">${hours}</div><div class="label">Hours</div></div>
-                    <div class="countdown-box"><div class="value">${minutes}</div><div class="label">Minutes</div></div>
-                    <div class="countdown-box"><div class="value">${seconds}</div><div class="label">Seconds</div></div>
-                `;
+                    const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+                    countdown.innerHTML = `
+                        <div class="countdown-box"><div class="value">${days}</div><div class="label">Days</div></div>
+                        <div class="countdown-box"><div class="value">${hours}</div><div class="label">Hours</div></div>
+                        <div class="countdown-box"><div class="value">${minutes}</div><div class="label">Minutes</div></div>
+                        <div class="countdown-box"><div class="value">${seconds}</div><div class="label">Seconds</div></div>
+                    `;
+                } else {
+                    countdown.innerHTML = "";
+                    if (show_results) {
+                         countdownTitle.textContent = "Results are available!";
+                    } else {
+                         countdownTitle.textContent = "The event has ended.";
+                    }
+                }
             };
 
             update();
@@ -373,9 +496,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         updateVoteLink() {
-            if (this.config.forms_url && this.elements.voteLink) {
-                this.elements.voteLink.href = this.config.forms_url;
-            }
+            // This function is now obsolete as the action button is handled in init()
+            // and countdown logic is self-contained. It can be removed.
         }
 
         initHeroCarousel() {

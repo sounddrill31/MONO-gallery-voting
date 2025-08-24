@@ -158,6 +158,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Features visibility / rendering
             this.applyFeaturesVisibility();
 
+            // Home title / description / phase date
+            this.applyHomeIntro();
+
             this.setupEventListeners();
             this.handleURLParameters();
             this.setupCountdown();
@@ -191,9 +194,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 features.forEach(f => {
                     const card = document.createElement('div');
                     card.className = 'feature-card';
+                    // Insert HTML directly (trusted config). If untrusted, sanitize separately.
                     card.innerHTML = `
-                        <h3>${(f.title || '').replace(/</g,'&lt;')}</h3>
-                        <p>${(f.description || '').replace(/</g,'&lt;')}</p>
+                        <h3>${f.title || ''}</h3>
+                        <p>${f.description || ''}</p>
                     `;
                     this.elements.featuresGrid.appendChild(card);
                 });
@@ -201,6 +205,75 @@ document.addEventListener('DOMContentLoaded', () => {
             // Dynamically set optimal columns to reduce vertical scroll
             this.setFeatureGridColumns(features.length);
             this.elements.featuresSection.classList.remove('hidden');
+        }
+
+        applyHomeIntro() {
+            const titleEl = document.getElementById('homeTitle');
+            const descEl = document.getElementById('homeDescription');
+            const phaseDateEl = document.getElementById('phaseDate');
+            // Header element keeps HTML, but document.title should be plain text only
+            if (titleEl && this.config.home_title) {
+                titleEl.innerHTML = this.config.home_title;
+                const tmp = document.createElement('div');
+                tmp.innerHTML = this.config.home_title;
+                const plain = tmp.textContent || tmp.innerText || '';
+                if (plain.trim()) {
+                    document.title = plain.trim();
+                }
+            } else if (titleEl) {
+                titleEl.style.display = 'none';
+            }
+            // Determine phase-specific description keys
+            const phaseDescMap = {
+                'submission': this.config.home_description_submission,
+                'pre-submission': this.config.home_description_submission,
+                'between': this.config.home_description_voting, // waiting for voting
+                'voting': this.config.home_description_voting,
+                'results': this.config.home_description_results
+            };
+            let descHTML = phaseDescMap[this.phase];
+            if (!descHTML) {
+                // fallback to legacy single description if provided
+                descHTML = this.config.home_description;
+            }
+            if (descEl) {
+                if (descHTML) {
+                    descEl.innerHTML = descHTML;
+                } else {
+                    descEl.style.display = 'none';
+                }
+            }
+            if (!phaseDateEl) return;
+            const mode = this.config.show_date || 'none';
+            if (mode === 'none') { phaseDateEl.style.display='none'; return; }
+            const d = this.config.deadlines || {};
+            const tryFormat = (raw) => {
+                if (!raw) return '';
+                const dt = new Date(raw); // let browser parse as-is; if invalid return original
+                if (isNaN(dt.getTime())) return raw; // show as-is (user asked not to show invalid differently)
+                return dt.toLocaleString(undefined,{ dateStyle:'medium', timeStyle:'short'});
+            };
+            let text = '';
+            if (this.phase === 'submission' || this.phase === 'pre-submission') {
+                if (mode === 'submission' || mode === 'all') {
+                    text = `Submission Window: <strong>${tryFormat(d.submit_open)} → ${tryFormat(d.submit_close)}</strong>`;
+                }
+            } else if (this.phase === 'between' || this.phase === 'voting') {
+                if (mode === 'voting' || mode === 'all') {
+                    text = `Voting Window: <strong>${tryFormat(d.voting_open)} → ${tryFormat(d.voting_close)}</strong>`;
+                }
+            } else if (this.phase === 'results') {
+                if (mode === 'submission' || mode === 'all') {
+                    text += `Submission: <strong>${tryFormat(d.submit_open)} → ${tryFormat(d.submit_close)}</strong>`;
+                }
+                if (mode === 'voting' || mode === 'all') {
+                    text += (text ? ' • ' : '') + `Voting: <strong>${tryFormat(d.voting_open)} → ${tryFormat(d.voting_close)}</strong>`;
+                }
+                if (d.results && (mode === 'all')) {
+                    text += (text ? ' • ' : '') + `Results: <strong>${tryFormat(d.results)}</strong>`;
+                }
+            }
+            if (!text) { phaseDateEl.style.display='none'; } else { phaseDateEl.innerHTML = text; }
         }
 
         // Decide optimal columns given feature count to minimize vertical scroll while maintaining readable width

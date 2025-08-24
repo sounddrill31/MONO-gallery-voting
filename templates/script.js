@@ -94,13 +94,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 this.initHeroCarousel();
             }
 
-            // Unified button for Voting/Submit
+            // Unified button for Voting/Submit/Results
             let actionBtn = document.getElementById('actionBtn');
             if (!actionBtn) {
                 actionBtn = document.createElement('a');
                 actionBtn.id = 'actionBtn';
                 actionBtn.className = 'mono-btn mono-btn-primary';
-                // Insert in same location as voteLink if possible
                 if (this.elements.voteLink && this.elements.voteLink.parentNode) {
                     this.elements.voteLink.parentNode.appendChild(actionBtn);
                 } else if (document.body) {
@@ -109,7 +108,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             // Hide by default
             actionBtn.classList.add('hidden');
-            // Show and configure for submission phase
             const showSubmit = (typeof this.config.show_submit === 'undefined') ? true : this.config.show_submit;
             if (phase === 'submission' && showSubmit) {
                 actionBtn.textContent = 'Submit Photo';
@@ -118,6 +116,10 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (phase === 'voting' && this.config.show_voting) {
                 actionBtn.textContent = 'Vote Now';
                 actionBtn.href = this.config.voting_forms_url || '#';
+                actionBtn.classList.remove('hidden');
+            } else if (phase === 'results' && this.config.show_results) {
+                actionBtn.textContent = 'Results';
+                actionBtn.href = 'stats.html';
                 actionBtn.classList.remove('hidden');
             }
 

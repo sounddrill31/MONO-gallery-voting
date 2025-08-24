@@ -23,6 +23,11 @@
     box-sizing: border-box;
 }
 
+/* Global subtle font scaling: increases all rem-based Tailwind font sizes */
+html { font-size: 17px; } /* ~6% larger than default 16px */
+/* Keep features + share modal at baseline (undo global scale) */
+#features-section, #shareModal { font-size: 16px; }
+
 body {
     font-family: var(--font-mono);
     background-color: var(--mono-white);
@@ -121,7 +126,9 @@ body {
     text-align: center;
     padding: 4rem 2rem;
 }
-
+.site-header, .site-footer, #features-section, #shareModal, #shareModal * { font-size: initial; }
+/* Slightly larger base font for general main content (excludes header, share modal, features) */
+main { font-size: 1.1rem; line-height: 1.65; }
 .loading-state p, .error-state p {
     font-size: 1.2rem;
     font-weight: 700;

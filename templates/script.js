@@ -55,6 +55,8 @@ document.addEventListener('DOMContentLoaded', () => {
             this.phase = this.determinePhase(now);
             // Schedule a reload exactly when the next phase change boundary occurs
             this.schedulePhaseChangeReload(now);
+            // Primary phase collapses intermediary states (pre-submission -> submission, between -> voting)
+            this.primaryPhase = this.getPrimaryPhase(this.phase);
 
             // Handle gallery and carousel visibility based on phase and config
             const mainElement = document.querySelector('main');
@@ -64,15 +66,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const galleryHeading = document.querySelector('h3');
             const hrs = document.querySelectorAll('hr');
 
-            // Gallery visibility logic
-            let showGallery = false;
-            if (this.config.show_gallery === 'all') {
-                showGallery = true;
-            } else if (this.config.show_gallery === 'submission' && this.phase === 'submission') {
-                showGallery = true;
-            } else if (this.config.show_gallery === 'voting' && this.phase === 'voting') {
-                showGallery = true;
-            }
+            // Gallery visibility logic (supports scalar or array flags incl. 'results')
+            let showGallery = this.flagActive(this.config.show_gallery, this.primaryPhase, { defaultAll: false });
 
             if (!showGallery) {
                 if (carouselWrapper) carouselWrapper.style.display = 'none';
@@ -123,21 +118,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Remove old resultsBtn creation (now using modal)
 
-            // Countdown visibility
+            // Countdown visibility (handled again in setupCountdown, but we pre-hide if needed)
             if (this.elements.countdown && this.elements.countdownTitle) {
-                if (this.config.show_countdown === 'none') {
-                    this.elements.countdown.style.display = 'none';
-                    this.elements.countdownTitle.style.display = 'none';
-                } else if (this.config.show_countdown === 'all') {
-                    this.elements.countdown.style.display = '';
-                    this.elements.countdownTitle.style.display = '';
-                } else if (this.config.show_countdown === 'submission' && this.phase === 'submission') {
-                    this.elements.countdown.style.display = '';
-                    this.elements.countdownTitle.style.display = '';
-                } else if (this.config.show_countdown === 'voting' && this.phase === 'voting') {
-                    this.elements.countdown.style.display = '';
-                    this.elements.countdownTitle.style.display = '';
-                } else {
+                const cdActive = this.flagActive(this.config.show_countdown, this.primaryPhase, { allowResults: true });
+                if (!cdActive) {
                     this.elements.countdown.style.display = 'none';
                     this.elements.countdownTitle.style.display = 'none';
                 }
@@ -345,29 +329,17 @@ document.addEventListener('DOMContentLoaded', () => {
         /* ================= END RESULTS ================= */
 
         applyFeaturesVisibility() {
-            const flag = this.config.show_features || 'none';
             const features = Array.isArray(this.config.features) ? this.config.features : [];
-            const hasFeatures = features.length > 0;
             if (!this.elements.featuresSection) return;
-
-            // Determine if we should show based on phase & flag
-            let show = false;
-            if (hasFeatures) {
-                if (flag === 'all') show = true;
-                else if (flag === 'submission' && this.phase === 'submission') show = true;
-                else if (flag === 'voting' && this.phase === 'voting') show = true;
-            }
+            const show = features.length > 0 && this.flagActive(this.config.show_features, this.primaryPhase, { defaultAll: false, allowResults: true });
             if (!show) {
                 this.elements.featuresSection.classList.add('hidden');
                 return;
             }
-
-            // Render only once or if grid empty
             if (this.elements.featuresGrid && this.elements.featuresGrid.children.length === 0) {
                 features.forEach(f => {
                     const card = document.createElement('div');
                     card.className = 'feature-card';
-                    // Insert HTML directly (trusted config). If untrusted, sanitize separately.
                     card.innerHTML = `
                         <h3>${f.title || ''}</h3>
                         <p>${f.description || ''}</p>
@@ -375,7 +347,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     this.elements.featuresGrid.appendChild(card);
                 });
             }
-            // Dynamically set optimal columns to reduce vertical scroll
             this.setFeatureGridColumns(features.length);
             this.elements.featuresSection.classList.remove('hidden');
         }
@@ -479,6 +450,33 @@ document.addEventListener('DOMContentLoaded', () => {
             if (votingOpen && votingClose && nowTs >= votingOpen && nowTs < votingClose) return 'voting';
             if (votingClose && nowTs >= votingClose) return 'results';
             return 'none';
+        }
+
+        // Collapse detailed internal phase to primary bucket for flag checks
+        getPrimaryPhase(phase) {
+            if (phase === 'pre-submission') return 'submission';
+            if (phase === 'between') return 'voting';
+            return phase; // submission, voting, results, none
+        }
+
+        // Generic flag activation logic. flag can be: undefined, 'all', 'none', 'submission', 'voting', 'results', or an array of those.
+        flagActive(flag, currentPrimaryPhase, opts = {}) {
+            const { defaultAll = true } = opts;
+            if (Array.isArray(flag)) {
+                return flag.map(String).includes(currentPrimaryPhase);
+            }
+            if (flag == null || flag === '') {
+                return defaultAll; // historical default mostly showed content
+            }
+            if (typeof flag === 'string') {
+                const normalized = flag.toLowerCase();
+                if (normalized === 'all') return true;
+                if (normalized === 'none') return false;
+                if (['submission','voting','results'].includes(normalized)) {
+                    return normalized === currentPrimaryPhase;
+                }
+            }
+            return false;
         }
 
         // Schedule a page reload exactly at the next phase transition boundary
@@ -737,7 +735,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const { deadlines, show_countdown, show_results } = this.config;
             const { countdown, countdownTitle } = this.elements;
 
-            if (!show_countdown || show_countdown === 'none') {
+            if (!this.flagActive(show_countdown, this.primaryPhase, { defaultAll: false })) {
                 if (countdown) countdown.style.display = 'none';
                 if (countdownTitle) countdownTitle.style.display = 'none';
                 return;
@@ -779,11 +777,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     phase = 'ended';
                 }
 
-                // Countdown visibility based on config
-                const isVisible = show_countdown === 'all' ||
-                                  (show_countdown === 'submission' && (phase === 'before-submission' || phase === 'submission')) ||
-                                  (show_countdown === 'voting' && (phase === 'before-voting' || phase === 'voting'));
-
+                // Determine which primary phase we are counting within
+                const interimPrimary = this.getPrimaryPhase(this.determinePhase(now));
+                const isVisible = this.flagActive(show_countdown, interimPrimary, { defaultAll: false });
                 if (!isVisible) {
                     if (countdown) countdown.style.display = 'none';
                     if (countdownTitle) countdownTitle.style.display = 'none';

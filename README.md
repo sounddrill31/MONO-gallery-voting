@@ -125,6 +125,48 @@ Notes & Rules:
 - If pie/bar shows no slices: ensure both group (1) and group (2) variants exist and rows have data in both columns.
 - Clear browser cache or regenerate if structure changes.
 
+### Phase-Based Visibility Flags (Gallery, Countdown, Features)
+
+Several configuration keys accept either a single string or an array of phase names to control when a section is visible:
+
+Flags:
+- `show_gallery`
+- `show_countdown`
+- `show_features`
+
+Accepted values (case-insensitive):
+- Scalar string: `all`, `none`, `submission`, `voting`, `results`
+- Array of phase names: e.g. `[ submission, voting ]`, `[ voting, results ]`
+
+Behavior rules:
+1. `all` always shows in every phase (after initial load).
+2. `none` always hides.
+3. `submission` matches both the pre-submission waiting period and the active submission window.
+4. `voting` matches both the between window (after submission closes, before voting opens) and the active voting window (countdown context). Gallery/features themselves only render when their flag resolves true for the current primary phase.
+5. `results` matches the phase after `voting_close` (or after the optional `deadlines.results` timestamp if configured) when results become accessible.
+6. Arrays are inclusion lists: any listed phase enables the feature for that phase (e.g. `show_gallery: [ voting, results ]`).
+7. Unknown tokens inside arrays are ignored.
+
+Examples:
+```yml
+show_gallery: all                  # Always show gallery/carousel
+show_gallery: none                 # Never show gallery (landing-only mode)
+show_gallery: voting               # Only show during active voting window
+show_gallery: [ voting, results ]  # Show while voting & keep visible for results reveal
+
+show_countdown: submission              # Only show countdown leading up to and during submission
+show_countdown: [ submission, voting ]  # Hide during results
+show_countdown: all                     # Show for every upcoming boundary (submission/voting/results if configured)
+
+show_features: [ submission, results ]  # Showcase feature cards early & again at the end
+```
+
+Backward compatibility:
+- Existing single-value configs still work unchanged.
+- If a flag is omitted, a legacy default is applied (previous behavior). Prefer explicit configuration for clarity.
+
+Tip: Use array syntax whenever you want a feature to persist into the results phase without forcing it to be visible earlier (e.g. keep gallery up for recap while hiding it during initial submission collection).
+
 ## Get Started
 This project uses [Pixi](https://pixi.sh/latest/) to manage code, and scripts. 
 

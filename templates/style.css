@@ -1253,6 +1253,14 @@ footer {
 #resultsModal { backdrop-filter: blur(2px); }
 #resultsModal { color:#fff; }
 #resultsModal .mono-border { border:1px solid #000; }
+/* Results modal layering & header protection */
+#resultsModal { position:fixed; z-index:1000; }
+#resultsModal .sticky.top-0 { z-index:1010; box-shadow:0 4px 8px -2px rgba(0,0,0,0.6); background:linear-gradient(#000,#111); }
+#resultsModal .p-6.space-y-12 { position:relative; z-index:1001; }
+/* Add spacing so first content doesn't slip under header on some mobile browsers */
+#resultsModal .p-6.space-y-12 > section:first-of-type { padding-top:0.5rem; }
+/* Any images or cards ensure they don't create their own stacking above header */
+#resultsModal img, #resultsModal .winner-gallery-card, #resultsModal .winner-card { position:relative; z-index:1001; }
 .winner-card { background:#fff; position:relative; }
 .winner-card:nth-child(1) { outline:3px double #000; }
 .winner-card:nth-child(2) { outline:2px solid #000; }

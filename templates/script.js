@@ -443,12 +443,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const submitClose = d.submit_close ? new Date(d.submit_close).getTime() : null;
             const votingOpen = d.voting_open ? new Date(d.voting_open).getTime() : null;
             const votingClose = d.voting_close ? new Date(d.voting_close).getTime() : null;
+            const resultsTime = d.results ? new Date(d.results).getTime() : null;
 
             if (submitOpen && nowTs < submitOpen) return 'pre-submission';
             if (submitOpen && submitClose && nowTs >= submitOpen && nowTs < submitClose) return 'submission';
             if (votingOpen && nowTs < votingOpen) return 'between';
             if (votingOpen && votingClose && nowTs >= votingOpen && nowTs < votingClose) return 'voting';
-            if (votingClose && nowTs >= votingClose) return 'results';
+            if (votingClose && nowTs >= votingClose) {
+                // If a results unlock time exists and hasn't arrived yet, enter waiting-results
+                if (resultsTime && nowTs < resultsTime) return 'waiting-results';
+                return 'results';
+            }
             return 'none';
         }
 
@@ -456,6 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
         getPrimaryPhase(phase) {
             if (phase === 'pre-submission') return 'submission';
             if (phase === 'between') return 'voting';
+            if (phase === 'waiting-results') return 'voting'; // treat as voting for most visibility flags
             return phase; // submission, voting, results, none
         }
 

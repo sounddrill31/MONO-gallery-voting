@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const carouselWrapper = document.querySelector('.carousel-wrapper');
             const galleryGrid = this.elements.galleryGrid;
             const galleryHeading = document.querySelector('h3');
+            const galleryInstruction = document.getElementById('galleryInstruction');
             const hrs = document.querySelectorAll('hr');
 
             // Gallery visibility logic (supports scalar or array flags incl. 'results')
@@ -73,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (carouselWrapper) carouselWrapper.style.display = 'none';
                 if (galleryGrid) galleryGrid.style.display = 'none';
                 if (galleryHeading) galleryHeading.style.display = 'none';
+                if (galleryInstruction) galleryInstruction.style.display = 'none';
                 hrs.forEach(hr => hr.style.display = 'none');
                 if (countdownSection) {
                     countdownSection.classList.add('center-content', 'section-spacing');
@@ -80,6 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 this.renderGallery();
                 this.initHeroCarousel();
+                if (galleryInstruction) galleryInstruction.style.display = '';
             }
 
             // Unified button for Voting/Submit/Results
@@ -821,13 +824,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="countdown-box"><div class="value">${minutes}</div><div class="label">Minutes</div></div>
                         <div class="countdown-box"><div class="value">${seconds}</div><div class="label">Seconds</div></div>
                     `;
+             } else {
+                countdown.innerHTML = "";
+                if (show_results) {
+                    countdownTitle.textContent = "Results are available!";
                 } else {
-                    countdown.innerHTML = "";
-                    if (show_results) {
-                         countdownTitle.textContent = "Results are available!";
-                    } else {
-                         countdownTitle.textContent = "The event has ended.";
-                    }
+                    countdownTitle.textContent = "The event has ended.";
+                }
                 }
             };
 

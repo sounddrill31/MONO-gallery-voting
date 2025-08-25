@@ -42,8 +42,88 @@ teams:
 
 ### Example CSV Scheme
 ```csv
-Position,Team Number,Team Name,Submission Image
+Position,Team Number,Team Name,Submission Image,Final Round Public Voting Result(%)
 ```
+
+> [!TIP]
+> `Final Round Public Voting Result(%)` is only for the stats page and can be skipped 
+
+### Results & Extra Statistics System
+
+The site now supports an inline **Results Modal** (no separate stats page) that appears when:
+
+1. `show_results: true` in `config.yaml`, and
+2. The phase has advanced to results (after `voting_close`, or at `deadlines.results` if set).
+
+Clicking the unified action button labeled `Results` opens a full-screen modal containing:
+
+Order:
+1. Winners (Top 3 cards with medal outline styles and public vote % if available)
+2. Winner Gallery (all submissions sorted by public vote % descending, then rank)
+3. Public Vote Distribution Pie Chart (if `Final Round Public Voting Result(%)` column present)
+4. Extra Statistics (auto-generated cards/charts from specially named CSV columns)
+
+#### Public Vote Percentages
+If your CSV contains `Final Round Public Voting Result(%)`, each team's value is parsed as `public_vote_percent` and used for:
+- Winner cards (shows e.g. `54.2% public vote` if numeric)
+- Main public vote pie chart
+- Sorting the Winner Gallery
+
+If absent or non-numeric, related visualizations gracefully fallback with a notice.
+
+#### Defining Extra Stats in CSV
+You can add arbitrary statistics by creating columns whose headers follow this pattern:
+
+`<Title>(extra stat)` optional `(pie|bar)` optional `(1)` / `(2)`
+
+Breakdown:
+- `(extra stat)` (case-insensitive) marks the column (or column group) for extraction.
+- `(pie)` or `(bar)` tells the frontend which visualization to render. If omitted, a simple value card or list is produced.
+- `(1)` and `(2)` designate pairing groups for label/value series (for pie or bar charts). Group 1 columns are treated as labels; corresponding Group 2 columns as numeric values (paired by index). If you omit groups, the system attempts a best-effort fallback, treating each column's row values as entries.
+
+Examples:
+1. Single Value Card:
+  - Column: `Total Teams(extra stat)`
+  - First non-empty row value becomes the displayed statistic.
+
+2. Pie Chart (label/value pairs split across groups):
+  - `Total Course-Wise Participation Distribution(extra stat)(pie)(1)`
+  - `Total Course-Wise Participation Distribution(extra stat)(pie)(2)`
+  - Each row: Group (1) cell = label, Group (2) cell = numeric value. Multiple rows accumulate slices.
+
+3. Bar Chart (label/value pairs):
+  - `Teams(extra stat)(bar)(1)`
+  - `Teams(extra stat)(bar)(2)`
+  - Row examples:
+    - `Participated` / `22`
+    - `Qualified` / `10`
+    - `Awarded` / `4`
+
+4. Pie Chart with Course Distribution:
+  - `Total Course-Wise Participation Distribution(extra stat)(pie)(1)` (Labels: e.g. `BCA A 2nd Sem`)
+  - `Total Course-Wise Participation Distribution(extra stat)(pie)(2)` (Values: e.g. `1`)
+
+Notes & Rules:
+- Title is everything before `(extra stat)`; trailing chart/group markers are stripped in the UI.
+- Only the first non-empty value for a non-chart stat is used (assumes aggregate row). Keep such stats on a single summary row.
+- For chart stats, every row containing both a label (group 1) and value (group 2) contributes a slice/bar.
+- Non-numeric values in chart value positions are preserved as raw strings but may not render proportionally (bars/pies treat them as 0).
+- All extracted stats are stored under `extra_stats` in `teams.yaml` and injected into the frontend config.
+
+#### Styling & Accessibility
+- Monochrome (grayscale) shades are auto-assigned to slices/bars for consistency with the MONO theme.
+- Hover opacity change on pie slices for simple focus feedback.
+- Winner medal styling hierarchy: double outline (🥇), solid (🥈), dashed (🥉).
+
+#### Workflow
+1. Add properly named `(extra stat)` columns to your CSV.
+2. Run the generation pipeline (`pixi run prepare` or your script) to regenerate `teams.yaml`.
+3. Open the site after results phase begins; click `Results`.
+
+#### Troubleshooting
+- If a stat doesn't appear: confirm the header includes `(extra stat)` and matches the grouping/chart syntax exactly.
+- If pie/bar shows no slices: ensure both group (1) and group (2) variants exist and rows have data in both columns.
+- Clear browser cache or regenerate if structure changes.
 
 ## Get Started
 This project uses [Pixi](https://pixi.sh/latest/) to manage code, and scripts. 

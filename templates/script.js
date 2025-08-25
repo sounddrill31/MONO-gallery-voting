@@ -112,28 +112,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 actionBtn.classList.remove('hidden');
             } else if (this.phase === 'results' && this.config.show_results) {
                 actionBtn.textContent = 'Results';
-                actionBtn.href = 'stats.html';
+                actionBtn.href = '#results';
+                actionBtn.removeAttribute('target');
                 actionBtn.classList.remove('hidden');
+                actionBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.openResultsModal();
+                });
             }
 
-            // Results button visibility
-            if (this.phase === 'results' && this.config.show_results) {
-                let resultsBtn = document.getElementById('resultsBtn');
-                if (!resultsBtn) {
-                    resultsBtn = document.createElement('a');
-                    resultsBtn.id = 'resultsBtn';
-                    resultsBtn.href = 'stats.html';
-                    resultsBtn.className = 'mono-btn mono-btn-primary';
-                    resultsBtn.textContent = 'Show Results';
-                    if (this.elements.voteLink && this.elements.voteLink.parentNode) {
-                        this.elements.voteLink.parentNode.appendChild(resultsBtn);
-                    }
-                }
-                resultsBtn.classList.remove('hidden');
-            } else {
-                const resultsBtn = document.getElementById('resultsBtn');
-                if (resultsBtn) resultsBtn.classList.add('hidden');
-            }
+            // Remove old resultsBtn creation (now using modal)
 
             // Countdown visibility
             if (this.elements.countdown && this.elements.countdownTitle) {
@@ -169,7 +157,192 @@ document.addEventListener('DOMContentLoaded', () => {
             this.setupPinchToZoom();
             this.setupGestures();
             this.setupDownloadButton();
+            if (this.phase === 'results' && this.config.show_results) {
+                this.prepareResultsData();
+            }
         }
+
+        /* ================= RESULTS MODAL + STATS ================= */
+        openResultsModal() {
+            const modal = document.getElementById('resultsModal');
+            if (!modal) return;
+            this.prepareResultsData();
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            const closeBtn = document.getElementById('closeResultsModal');
+            if (closeBtn && !closeBtn._added) {
+                closeBtn.addEventListener('click', () => this.closeResultsModal());
+                closeBtn._added = true;
+            }
+            if (!this._resultsBackdropAdded) {
+                modal.addEventListener('click', (e) => { if (e.target === modal) this.closeResultsModal(); });
+                this._resultsBackdropAdded = true;
+            }
+        }
+
+        closeResultsModal() {
+            const modal = document.getElementById('resultsModal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        prepareResultsData() {
+            if (this._resultsPrepared) return;
+            this._resultsPrepared = true;
+            this.computeWinners();
+            this.buildPublicVoteChart();
+            this.renderExtraStats();
+        }
+
+        computeWinners() {
+            const teamsSorted = [...this.teams].sort((a,b)=> {
+                const ra = parseFloat(a.rank) || 9999;
+                const rb = parseFloat(b.rank) || 9999;
+                return ra - rb;
+            });
+            this._winners = teamsSorted.slice(0,3);
+            const winnersList = document.getElementById('winnersList');
+            if (winnersList && winnersList.children.length===0) {
+                this._winners.forEach((team,idx)=>{
+                    const medal = idx===0?'🥇':idx===1?'🥈':'🥉';
+                    const percent = (team.public_vote_percent!=null)? `<span class="text-xs block mt-1 opacity-70">${team.public_vote_percent}% public vote</span>`: '';
+                    const card = document.createElement('div');
+                    card.className='winner-card mono-border p-4 flex flex-col gap-3';
+                    card.innerHTML = `
+                        <div class="aspect-square overflow-hidden border border-black/20">
+                            <img src="${team.images[0]}" alt="${team.teamName}" class="object-cover w-full h-full" />
+                        </div>
+                        <div>
+                            <h4 class="font-bold tracking-wide text-sm">${medal} ${this.config.hide_team_data? 'Submission #'+team.rank : team.teamName}</h4>
+                            ${percent}
+                        </div>`;
+                    winnersList.appendChild(card);
+                });
+            }
+            const gallery = document.getElementById('winnerGallery');
+            if (gallery && gallery.children.length===0) {
+                const sortedByVote = [...this.teams].sort((a,b)=>{
+                    const av = (a.public_vote_percent==null)? -1 : a.public_vote_percent;
+                    const bv = (b.public_vote_percent==null)? -1 : b.public_vote_percent;
+                    if (bv !== av) return bv - av;
+                    const ar = parseFloat(a.rank)||9999; const br = parseFloat(b.rank)||9999; return ar - br;
+                });
+                sortedByVote.forEach((team,index)=>{
+                    const medal = index<3 ? (index===0?'🥇':index===1?'🥈':'🥉') : '';
+                    const card = document.createElement('div');
+                    card.className='winner-gallery-card flex flex-col border border-black/30 bg-white hover:shadow-md transition-shadow';
+                    card.innerHTML = `
+                        <div class="h-40 overflow-hidden"><img src="${team.images[0]}" alt="${team.teamName}" class="object-cover w-full h-full" /></div>
+                        <div class="p-3 flex flex-col flex-grow">
+                            <div class="flex items-center justify-between text-xs font-mono mb-1">
+                                <span class="font-bold">${this.config.hide_team_data? '#'+team.rank : team.teamName}</span>
+                                <span>${medal}</span>
+                            </div>
+                            <div class="text-[10px] opacity-70 mt-auto">${team.public_vote_percent!=null? team.public_vote_percent + '% vote' : ''}</div>
+                        </div>`;
+                    gallery.appendChild(card);
+                });
+            }
+        }
+
+        buildPublicVoteChart() {
+            const container = document.getElementById('publicVoteChart');
+            if (!container || container.childElementCount>0) return;
+            const data = this.teams.filter(t=> typeof t.public_vote_percent === 'number' && !isNaN(t.public_vote_percent));
+            if (!data.length) {
+                container.innerHTML = '<p class="text-sm opacity-60">No public vote data available.</p>';
+                return;
+            }
+            const total = data.reduce((sum,t)=> sum + t.public_vote_percent, 0) || 1;
+            let cumulative = 0;
+            const size = 260; const radius = size/2; const stroke = radius;
+            const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+            svg.setAttribute('viewBox',`0 0 ${size} ${size}`);
+            svg.classList.add('mono-pie');
+            data.sort((a,b)=> b.public_vote_percent - a.public_vote_percent);
+            data.forEach((t,i)=>{
+                const value = t.public_vote_percent;
+                const frac = value/total;
+                const dash = frac * Math.PI * 2 * radius;
+                const gap = Math.PI * 2 * radius - dash;
+                const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+                circle.setAttribute('r', radius.toString());
+                circle.setAttribute('cx', radius.toString());
+                circle.setAttribute('cy', radius.toString());
+                circle.setAttribute('fill','transparent');
+                circle.setAttribute('stroke',`hsl(0,0%,${15 + i*8}%)`);
+                circle.setAttribute('stroke-width', stroke.toString());
+                circle.setAttribute('stroke-dasharray', `${dash} ${gap}`);
+                circle.setAttribute('stroke-dashoffset', (-cumulative * Math.PI * 2 * radius).toString());
+                circle.setAttribute('data-label', this.config.hide_team_data? '#'+t.rank : t.teamName);
+                svg.appendChild(circle);
+                cumulative += frac;
+            });
+            container.appendChild(svg);
+            const legend = document.getElementById('publicVoteLegend');
+            if (legend && legend.childElementCount===0) {
+                data.forEach((t,i)=>{
+                    const item = document.createElement('div');
+                    item.className='flex items-center gap-1';
+                    item.innerHTML = `<span class="inline-block w-3 h-3" style="background:hsl(0,0%,${15+i*8}%);"></span><span class="text-[10px] uppercase tracking-wide">${this.config.hide_team_data? '#'+t.rank : t.teamName} – ${t.public_vote_percent}%</span>`;
+                    legend.appendChild(item);
+                });
+            }
+        }
+
+        renderExtraStats() {
+            const grid = document.getElementById('extraStatsGrid');
+            if (!grid || !this.config.extra_stats) return;
+            const stats = this.config.extra_stats;
+            Object.entries(stats).forEach(([rawTitle, obj])=>{
+                const title = rawTitle.trim();
+                const chart = obj.chart;
+                if (obj.value != null) {
+                    const card = document.createElement('div');
+                    card.className='extra-stat-card mono-border p-4 bg-white flex flex-col';
+                    card.innerHTML = `<h4 class="font-bold mb-2 text-sm uppercase tracking-wide">${title}</h4><div class="text-3xl font-mono">${obj.value}</div>`;
+                    grid.appendChild(card);
+                } else if (Array.isArray(obj.data) && obj.data.length) {
+                    if (chart === 'pie') {
+                        grid.appendChild(this.buildMiniPie(title,obj.data));
+                    } else if (chart === 'bar') {
+                        grid.appendChild(this.buildMiniBar(title,obj.data));
+                    } else {
+                        const card=document.createElement('div');
+                        card.className='extra-stat-card mono-border p-4 bg-white';
+                        card.innerHTML=`<h4 class="font-bold mb-2 text-sm uppercase tracking-wide">${title}</h4>`;
+                        const list=document.createElement('ul'); list.className='space-y-1 text-xs';
+                        obj.data.forEach(d=>{ list.innerHTML += `<li class=\"flex justify-between\"><span>${d.label}</span><span class=\"font-mono\">${d.value}</span></li>`; });
+                        card.appendChild(list); grid.appendChild(card);
+                    }
+                }
+            });
+        }
+
+        buildMiniPie(title,data) {
+            const card=document.createElement('div');
+            card.className='extra-stat-card mono-border p-4 bg-white flex flex-col';
+            card.innerHTML = `<h4 class="font-bold mb-2 text-sm uppercase tracking-wide">${title}</h4>`;
+            const size=160; const radius=size/2; const stroke=radius;
+            const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('viewBox',`0 0 ${size} ${size}`); svg.classList.add('mini-pie');
+            const total=data.reduce((s,d)=> s + (typeof d.value==='number'? d.value:0),0)||1; let cumulative=0;
+            data.forEach((d,i)=>{ const val=(typeof d.value==='number')? d.value:0; const frac=val/total; const dash=frac*Math.PI*2*radius; const gap=Math.PI*2*radius - dash; const c=document.createElementNS('http://www.w3.org/2000/svg','circle'); c.setAttribute('r',radius); c.setAttribute('cx',radius); c.setAttribute('cy',radius); c.setAttribute('fill','transparent'); c.setAttribute('stroke',`hsl(0,0%,${20+i*10}%)`); c.setAttribute('stroke-width',stroke); c.setAttribute('stroke-dasharray',`${dash} ${gap}`); c.setAttribute('stroke-dashoffset',(-cumulative*Math.PI*2*radius)); svg.appendChild(c); cumulative+=frac; });
+            card.appendChild(svg);
+            const legend=document.createElement('div'); legend.className='flex flex-wrap gap-1 mt-2';
+            data.forEach((d,i)=>{ legend.innerHTML += `<span class=\"flex items-center gap-1 text-[10px]\"><span class=\"w-2 h-2 inline-block\" style=\"background:hsl(0,0%,${20+i*10}%);\"></span>${d.label}<span class=\"font-mono\">${d.value}</span></span>`; });
+            card.appendChild(legend);
+            return card;
+        }
+
+        buildMiniBar(title,data) {
+            const card=document.createElement('div'); card.className='extra-stat-card mono-border p-4 bg-white flex flex-col';
+            card.innerHTML = `<h4 class="font-bold mb-3 text-sm uppercase tracking-wide">${title}</h4>`;
+            const max=Math.max(...data.map(d=> (typeof d.value==='number'? d.value:0)),1); const list=document.createElement('div'); list.className='space-y-2';
+            data.forEach((d,i)=>{ const val=(typeof d.value==='number')? d.value:0; const pct=(val/max)*100; const row=document.createElement('div'); row.className='text-xs'; row.innerHTML = `<div class=\"flex justify-between mb-1\"><span>${d.label}</span><span class=\"font-mono\">${d.value}</span></div><div class=\"h-2 w-full bg-gray-200 relative overflow-hidden\"><div class=\"h-full\" style=\"width:${pct}%;background:hsl(0,0%,${20+i*10}%);\"></div></div>`; list.appendChild(row); });
+            card.appendChild(list); return card;
+        }
+        /* ================= END RESULTS ================= */
 
         applyFeaturesVisibility() {
             const flag = this.config.show_features || 'none';

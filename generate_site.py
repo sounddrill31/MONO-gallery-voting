@@ -28,7 +28,12 @@ class GalleryGenerator:
             with open('config.yaml', 'r', encoding='utf-8') as f:
                 self.config = yaml.safe_load(f)
             with open('teams.yaml', 'r', encoding='utf-8') as f:
-                self.teams_data = yaml.safe_load(f).get('teams', [])
+                teams_yaml = yaml.safe_load(f)
+                self.teams_data = teams_yaml.get('teams', [])
+                extra_stats = teams_yaml.get('extra_stats')
+                if extra_stats:
+                    # Attach to config so frontend can access via CONFIG_DATA_PLACEHOLDER
+                    self.config['extra_stats'] = extra_stats
             print("✓ Data loaded successfully.")
             return True
         except FileNotFoundError as e:

@@ -1248,3 +1248,53 @@ footer {
     pointer-events: none;
 }
 .feature-card:hover:after { opacity: 1; }
+
+/* ================= RESULTS MODAL & STATS ================= */
+#resultsModal { backdrop-filter: blur(2px); }
+#resultsModal { color:#fff; }
+#resultsModal .mono-border { border:1px solid #000; }
+.winner-card { background:#fff; position:relative; }
+.winner-card:nth-child(1) { outline:3px double #000; }
+.winner-card:nth-child(2) { outline:2px solid #000; }
+.winner-card:nth-child(3) { outline:2px dashed #000; }
+.winner-card h4, .winner-card span, .winner-card div { color:#000; }
+.winner-gallery-card { font-size:12px; }
+#winnerGallery .winner-gallery-card { color:#000; }
+#winnerGallerySection h3 { color:#fff; }
+.mono-pie, .mini-pie { max-width:100%; display:block; margin:auto; }
+.mono-pie circle, .mini-pie circle { transition:opacity .2s ease; }
+.mono-pie circle:hover, .mini-pie circle:hover { opacity:.7; }
+.extra-stat-card { position:relative; }
+.extra-stat-card h4 { letter-spacing:.08em; }
+.extra-stat-card .mini-pie { height:160px; }
+#publicVoteLegend span { white-space:nowrap; }
+/* Force readable text on white extra stat cards */
+#extraStatsGrid .extra-stat-card { color:#000; }
+#extraStatsGrid .extra-stat-card h4 { color:#000; }
+#extraStatsGrid .extra-stat-card .font-mono, #extraStatsGrid .extra-stat-card span, #extraStatsGrid .extra-stat-card li { color:#000; }
+/* Maintain pie chart roundness and white center label contrast */
+.mono-chart-pie svg.mono-pie { width:260px; height:260px; aspect-ratio:1/1; display:block; }
+.mono-chart-pie { text-align:center; }
+.mono-chart-pie .center-label { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; letter-spacing:.08em; color:#fff; mix-blend-mode:screen; }
+@media (max-width:480px){ .mono-chart-pie svg.mono-pie { width:200px; height:200px; } }
+@media (min-width: 768px){
+    #resultsModal .min-h-full { padding-bottom:4rem; }
+}
+/* Scrollbar styling inside results modal */
+#resultsModal ::-webkit-scrollbar { width: 8px; }
+#resultsModal ::-webkit-scrollbar-track { background: #111; }
+#resultsModal ::-webkit-scrollbar-thumb { background: #444; }
+#resultsModal ::-webkit-scrollbar-thumb:hover { background:#666; }
+/* ================= END RESULTS ================= */
+/* Winner gallery readability & pie chart shape adjustments */
+#winnerGallerySection h3 { color:#fff; }
+#winnerGallery .winner-gallery-card { background:#fff; color:#000; border:1px solid #000; }
+#winnerGallery .winner-gallery-card img { display:block; }
+#winnerGallery .winner-gallery-card .font-bold { color:#000; }
+/* Force pie chart to be perfectly circular even in flex/percentage contexts */
+.mono-chart-pie svg.mono-pie { width:260px; height:260px; max-width:100%; aspect-ratio:1 / 1; display:block; margin:0 auto; }
+@media (max-width:480px){
+    .mono-chart-pie svg.mono-pie { width:200px; height:200px; }
+}
+/* Mini pies also keep aspect */
+.mini-pie { width:160px; height:160px; aspect-ratio:1 / 1; }

@@ -41,6 +41,44 @@
             <a id="actionBtn" href="#" target="_blank" class="mono-btn mono-btn-primary hidden"></a>
         </section>
 
+        <!-- Results Modal Trigger will reuse actionBtn when phase=results -->
+
+        <!-- Results Modal (hidden by default) -->
+        <div id="resultsModal" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden overflow-y-auto">
+            <div class="min-h-full flex flex-col">
+                <div class="sticky top-0 bg-black text-white flex justify-between items-center p-4 border-b border-gray-700">
+                    <h2 class="text-xl font-bold tracking-wider">Contest Results</h2>
+                    <button id="closeResultsModal" class="text-3xl leading-none hover:text-gray-400" title="Close Results">&times;</button>
+                </div>
+                <div class="p-6 space-y-12 max-w-7xl w-full mx-auto">
+                    <!-- Winners Section -->
+                    <section id="winnersSection" class="space-y-6">
+                        <h3 class="text-lg font-bold uppercase tracking-wide">🏆 Winners</h3>
+                        <div id="winnersList" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+                    </section>
+
+                    <!-- Winner Gallery Section -->
+                    <section id="winnerGallerySection" class="space-y-6">
+                        <h3 class="text-lg font-bold uppercase tracking-wide">🎖️ Winner Gallery</h3>
+                        <div id="winnerGallery" class="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"></div>
+                    </section>
+
+                    <!-- Public Vote Pie Chart Section -->
+                    <section id="publicVoteChartSection" class="space-y-6">
+                        <h3 class="text-lg font-bold uppercase tracking-wide">📊 Public Vote Distribution</h3>
+                        <div id="publicVoteChart" class="mono-chart-pie w-full max-w-xl mx-auto"></div>
+                        <div id="publicVoteLegend" class="flex flex-wrap gap-3 justify-center text-xs"></div>
+                    </section>
+
+                    <!-- Extra Stats Section -->
+                    <section id="extraStatsSection" class="space-y-6">
+                        <h3 class="text-lg font-bold uppercase tracking-wide">➕ Extra Statistics</h3>
+                        <div id="extraStatsGrid" class="grid gap-6 md:grid-cols-2"></div>
+                    </section>
+                </div>
+            </div>
+        </div>
+
         <!-- Features Section -->
         <section id="features-section" class="my-12 hidden">
             <div id="features-grid" class="gap-8">

@@ -225,7 +225,7 @@ Also ensure git is installed!
 
 ### Set up project
 ```bash
-git clone https://github.com/sounddrill31/MONO-gallery-vote && cd MONO-gallery-vote
+git clone https://github.com/sounddrill31/MONO-gallery-voting && cd MONO-gallery-voting
 ```
 
 ### Install Dependencies/Environment

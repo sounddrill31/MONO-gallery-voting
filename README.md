@@ -23,7 +23,7 @@ If you wish to use this for your event, remember to edit [config.yaml](config.ya
 ## Event Info
 We had the event in three phases:
 ### Phase 0: Planning (16th to 21st August 2025)
-```mmd
+```mermaid
 flowchart LR
     subgraph "Phase 0: Pre-Event (Offline)"
         direction LR
@@ -31,7 +31,7 @@ flowchart LR
     end
 ```
 ### Phase 1: Submission Session (23rd August 2025)
-```mmd
+```mermaid
 flowchart LR
     subgraph "Phase 1: Submission (Offline + Online)"
         direction LR
@@ -42,7 +42,7 @@ flowchart LR
 ### Phase 1.5: Data Cleanup 
 Data is cleaned up and stored in another Google Sheet for [MONO-gallery-submissions](https://github.com/sounddrill31/mono-gallery-submissions). 
 ### Phase 2: Judge Voting
-```mmd
+```mermaid
 flowchart LR
     subgraph "Phase 2: Judge Voting (Offline + Online)"
         direction LR
@@ -54,7 +54,7 @@ flowchart LR
 Data is sorted, and metrics are manually added for Results page. (Winners and pie chart is auto-generated).
 
 ### Phase 3: Online Voting
-```mmd
+```mermaid
 
 flowchart LR
     subgraph "Phase 3: Online Voting (Online)"

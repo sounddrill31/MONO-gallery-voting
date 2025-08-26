@@ -11,7 +11,7 @@ deadlines:
   # Optional: set the time when the results link/button should appear
   # If not set and show_results is true, results will show immediately after voting ends
   # If show_results is false, nothing related to results will be shown
-  results: "2025-08-27 10:00:00"
+  results: "2025-08-30 10:00:00"
 show_countdown: all # voting, submission, all or none
 show_gallery: [ voting, results ] #voting, submission, all or none. Set to none to hide carousel and gallery cards. 
 show_voting: true # Set to false to hide the vote button

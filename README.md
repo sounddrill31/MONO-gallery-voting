@@ -44,9 +44,9 @@ Data is cleaned up and stored in another Google Sheet for [MONO-gallery-submissi
 ### Phase 2: Judge Voting
 ```mermaid
 flowchart LR
-    subgraph "Phase 2: Judge Voting (Offline + Online)"
+    subgraph "Phase 2: Judge Voting (Offline)"
         direction LR
-        A[Rules Explained to Judges] --> B[Use [MONO-gallery-submissions](https://github.com/sounddrill31/mono-gallery-submissions) to preview Images on Display/Projector] --> C[Judges Share Results] --> D[Top 10 Teams Continue to The Next Phase]
+        A[Rules Explained to Judges] --> B(Use MONO-gallery-submissions to preview Images on Display/Projector) --> C[Judges Share Results] --> D[Top 10 Teams Continue to The Next Phase]
     end
 ```
 
@@ -59,7 +59,7 @@ Data is sorted, and metrics are manually added for Results page. (Winners and pi
 flowchart LR
     subgraph "Phase 3: Online Voting (Online)"
         direction LR
-        A[Countdown to Voting] --> B[Use [MONO-gallery-voting](https://github.com/sounddrill31/mono-gallery-voting) + Google Forms] --> C[Results (to be) Released]
+        A[Countdown to Voting] --> B(Use MONO-gallery-voting) + Google Forms] --> C[Results (to be) Released]
     end
 ```
 
@@ -162,7 +162,6 @@ Notes & Rules:
 #### Styling & Accessibility
 - Monochrome (grayscale) shades are auto-assigned to slices/bars for consistency with the MONO theme.
 - Hover opacity change on pie slices for simple focus feedback.
-- Winner medal styling hierarchy: double outline (🥇), solid (🥈), dashed (🥉).
 
 #### Workflow
 1. Add properly named `(extra stat)` columns to your CSV.

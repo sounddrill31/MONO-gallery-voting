@@ -3,6 +3,7 @@ import csv
 import os
 import re
 import yaml
+from datetime import datetime
 
 
 def generate_teams_yaml(csv_path='data.csv', yaml_path='teams.yaml'):
@@ -22,8 +23,47 @@ def generate_teams_yaml(csv_path='data.csv', yaml_path='teams.yaml'):
     teams = []
     extra_stats = {}
     if not os.path.exists(csv_path):
-        print(f"Error: {csv_path} not found.")
-        return
+        # Allow empty state during pre-submission or submission window based on config.yaml
+        allow_empty = True
+        try:
+            if os.path.exists('config.yaml'):
+                with open('config.yaml','r',encoding='utf-8') as cf:
+                    cfg = yaml.safe_load(cf) or {}
+                deadlines = (cfg or {}).get('deadlines', {})
+                now = datetime.now().timestamp()
+                submit_open = deadlines.get('submit_open')
+                submit_close = deadlines.get('submit_close')
+                def parse(ts):
+                    if not ts: return None
+                    try:
+                        return datetime.fromisoformat(ts).timestamp()
+                    except ValueError:
+                        # Try space separated format fallback
+                        try:
+                            return datetime.strptime(ts, '%Y-%m-%d %H:%M:%S').timestamp()
+                        except Exception:
+                            return None
+                so = parse(submit_open)
+                sc = parse(submit_close)
+                if so and now < so:
+                    allow_empty = True  # pre-submission
+                elif so and sc and so <= now <= sc:
+                    allow_empty = True  # submission window
+                else:
+                    allow_empty = False
+        except Exception as e:
+            print(f"⚠️ Could not evaluate submission window ({e}); proceeding with empty teams.yaml by default.")
+            allow_empty = True
+
+        if allow_empty:
+            out_obj = {"teams": []}
+            with open(yaml_path, 'w', encoding='utf-8') as outfile:
+                yaml.dump(out_obj, outfile, default_flow_style=False, sort_keys=False)
+            print(f"Created empty {yaml_path} (no submissions yet; CSV missing).")
+            return
+        else:
+            print(f"Error: {csv_path} not found and submission window has ended; cannot create empty teams list.")
+            return
 
     # --- Read raw rows first (preserve duplicate headers) ---
     with open(csv_path, mode='r', encoding='utf-8') as infile:

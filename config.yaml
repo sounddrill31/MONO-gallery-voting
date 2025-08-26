@@ -4,20 +4,20 @@ site_title: 'GCC Photography<span class="text-xs align-super">2025</span>'
 submission_forms_url: "https://forms.gle/your-form-id-submit"
 voting_forms_url: "https://forms.gle/your-form-id-voting"
 deadlines:
-  submit_open: "2025-08-21 14:30:00" 
-  submit_close: "2025-08-21 16:00:00" 
-  voting_open: "2025-08-25 11:30:00"
-  voting_close: "2025-08-25 19:00:00"
+  submit_open: "2025-08-25 14:30:00" 
+  submit_close: "2025-08-27 16:00:00" 
+  voting_open: "2025-08-28 11:30:00"
+  voting_close: "2025-08-29 19:00:00"
   # Optional: set the time when the results link/button should appear
   # If not set and show_results is true, results will show immediately after voting ends
   # If show_results is false, nothing related to results will be shown
-  results: "2025-08-27 20:00:00"
+  results: "2025-08-30 20:00:00"
 show_countdown: all # voting, submission, all or none
 show_gallery: [ voting, results ] #voting, submission, all or none. Set to none to hide carousel and gallery cards. 
 show_voting: true # Set to false to hide the vote button
 show_results: true # Set to true to show results button after voting ends
 show_features: submission # Controls visibility of the features section. Options: all, submission, voting, none.
-hide_team_data: true # Set to true to hide team names and show rank based on a 'Position' column
+hide_team_data: false # Set to true to hide team names and show rank based on a 'Position' column
 home_title: 'GCC Photography<span class="text-xs align-super">2025</span>'
 home_description_submission: 'Submit your best photos and showcase your talent.'
 home_description_voting: 'Explore submissions, vote for your favorites, and celebrate creativity. <strong>Scroll down</strong> to view the gallery when the voting phase is open.'

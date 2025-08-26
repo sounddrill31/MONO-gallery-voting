@@ -4,6 +4,8 @@ import os
 import re
 import requests
 import subprocess
+from datetime import datetime
+import yaml
 
 
 def extract_sheet_id(url):
@@ -38,8 +40,8 @@ def run_shell_command(command):
 
 
 def main():
-    if len(sys.argv) != 2:
-        print("Usage: ci.py <public_google_sheet_url>", file=sys.stderr)
+    if len(sys.argv) not in (1,2):
+        print("Usage: ci.py [public_google_sheet_url]", file=sys.stderr)
         sys.exit(1)
 
     # Delete data.csv if it exists to ensure a clean start
@@ -51,21 +53,52 @@ def main():
             print(f"Error removing existing file: {e}", file=sys.stderr)
             sys.exit(1) # Exit if we can't remove the old file
 
-    sheet_url = sys.argv[1]
+    sheet_url = sys.argv[1] if len(sys.argv)==2 else None
 
-    try:
-        sheet_id = extract_sheet_id(sheet_url)
-        csv_data = download_csv(sheet_id)
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(2)
+    have_csv = False
+    if sheet_url:
+        try:
+            sheet_id = extract_sheet_id(sheet_url)
+            csv_data = download_csv(sheet_id)
+            with open("data.csv", "wb") as f:
+                f.write(csv_data)
+            have_csv = True
+        except Exception as e:
+            print(f"Warning: Could not download CSV ({e}). Will check config timing to decide if this is acceptable.", file=sys.stderr)
 
-    try:
-        with open("data.csv", "wb") as f:
-            f.write(csv_data)
-    except Exception as e:
-        print(f"Error saving file: {e}", file=sys.stderr)
-        sys.exit(3)
+    # If we still don't have data.csv, decide if we can proceed empty (pre-submission or submission)
+    if not have_csv:
+        allow_empty = True
+        try:
+            if os.path.exists('config.yaml'):
+                with open('config.yaml','r',encoding='utf-8') as cf:
+                    cfg = yaml.safe_load(cf) or {}
+                deadlines = (cfg or {}).get('deadlines', {})
+                now = datetime.now().timestamp()
+                def parse(ts):
+                    if not ts: return None
+                    for fmt in ('%Y-%m-%d %H:%M:%S','%Y-%m-%dT%H:%M:%S'):
+                        try:
+                            return datetime.strptime(ts, fmt).timestamp()
+                        except ValueError:
+                            continue
+                    return None
+                so = parse(deadlines.get('submit_open'))
+                sc = parse(deadlines.get('submit_close'))
+                if so and now < so:
+                    allow_empty = True
+                elif so and sc and so <= now <= sc:
+                    allow_empty = True
+                else:
+                    allow_empty = False
+        except Exception as e:
+            print(f"Warning: Could not evaluate config deadlines ({e}); defaulting to allow empty.")
+            allow_empty = True
+        if not allow_empty:
+            print("Error: No CSV available and submission window ended; cannot proceed.", file=sys.stderr)
+            sys.exit(2)
+        else:
+            print("Proceeding without data.csv (empty teams) due to current phase (pre-submission/submission).")
 
     try:
         run_shell_command("pixi run prepare")
@@ -73,7 +106,10 @@ def main():
         print(f"Error running 'pixi run prepare': {e}", file=sys.stderr)
         sys.exit(4)
 
-    print("Downloaded data.csv and successfully ran 'pixi run prepare'")
+    if have_csv:
+        print("Downloaded data.csv and successfully ran 'pixi run prepare'")
+    else:
+        print("Successfully generated site with empty teams (no CSV yet).")
 
 
 if __name__ == "__main__":

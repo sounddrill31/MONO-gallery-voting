@@ -113,12 +113,8 @@ class GalleryGenerator:
 
             # Anonymize team data if needed
             teams_for_js = self.teams_data
-            if self.config.get('hide_team_data', False):
-                print("ℹ️ Anonymizing team data as per config.")
-                teams_for_js = [
-                    {**team, 'teamName': f"Submission #{team['rank']}"}
-                    for team in self.teams_data
-                ]
+                # Backward compatibility: if hide_team_data present and show_team_data absent, leave behavior to frontend logic
+                # No additional processing required here; frontend will interpret flags.
 
 
             # Embed team data and config as JSON

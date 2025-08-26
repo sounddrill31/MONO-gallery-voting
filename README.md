@@ -4,7 +4,12 @@ We wrapped up submission collection and it turned out that:
 - We asked each user to upload 4 photographs per team and they all ended up in seperate folders. Google Forms CSV gave us a bunch of drive links! You need to ensure this folder is public, terrible for OPSEC, I know :(
     - We solved this problem with the previous repo: https://github.com/sounddrill31/MONO-gallery-submissions/blob/main/README.md
 - We performed an in-person voting with a panel of Judges, reducing the 88 images(4 by each team) into 10 images(1 for each team). We used the MONO-gallery-submissions website for this. 
-- We wanted to anonymize this data for impartial judging so there is a flag to hide team info, and go by the rank from the previous round('Position' element in the CSV)
+- We wanted to anonymize this data for impartial judging so there is a flexible flag to control when team info appears. Use `show_team_data` to decide in which phases (submission, voting, results) real team names are shown. In other phases they are replaced by their rank (from the `Position` column). Set it to:
+  - `all` (default): always show names
+  - `none`: always hide (shows as Submission #<rank>)
+  - `submission` / `voting` / `results`: only show in that single phase
+  - An array, e.g. `[ submission, voting ]` to show in multiple phases
+  Legacy: `hide_team_data: true` is still honored (equivalent to `show_team_data: none`).
 
 This website will help us organize the entire event, from Sharing a Submission Link with a form, to facilitating a last-round student voting after a judging round happens on a different link. 
 

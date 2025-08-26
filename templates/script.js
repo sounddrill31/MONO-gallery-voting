@@ -49,6 +49,26 @@ document.addEventListener('DOMContentLoaded', () => {
             this.init();
         }
 
+        // Determine if team data (team names) should be hidden for the current phase.
+        // New config flag: show_team_data can be 'all','none','submission','voting','results' or array of phases.
+        // Legacy flag: hide_team_data (boolean) still supported; if true and show_team_data undefined -> always hide.
+        shouldHideTeamData(){
+            const legacyHide = this.config.hide_team_data === true && typeof this.config.show_team_data === 'undefined';
+            const phase = this.getPrimaryPhase(this.determinePhase(Date.now()));
+            // flagActive returns true when feature should be shown. We invert for hiding logic.
+            // If show_team_data not provided, defaultAll true => visible (unless legacyHide)
+            const visible = this.flagActive(this.config.show_team_data, phase, { defaultAll: true });
+            return legacyHide ? true : !visible;
+        }
+
+        getDisplayName(team){
+            if (this.shouldHideTeamData()) {
+                const r = team.rank != null ? team.rank : '?';
+                return `Submission #${r}`;
+            }
+            return team.teamName;
+        }
+
         init() {
             // Determine current phase
             const now = Date.now();
@@ -201,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <img src="${team.images[0]}" alt="${team.teamName}" class="object-cover w-full h-full" />
                         </div>
                         <div>
-                            <h4 class="font-bold tracking-wide text-sm">${medal} ${this.config.hide_team_data? 'Submission #'+team.rank : team.teamName}</h4>
+                            <h4 class="font-bold tracking-wide text-sm">${medal} ${this.shouldHideTeamData()? 'Submission #'+team.rank : team.teamName}</h4>
                             ${percent}
                         </div>`;
                     winnersList.appendChild(card);
@@ -223,7 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="h-40 overflow-hidden"><img src="${team.images[0]}" alt="${team.teamName}" class="object-cover w-full h-full" /></div>
                         <div class="p-3 flex flex-col flex-grow">
                             <div class="flex items-center justify-between text-xs font-mono mb-1">
-                                <span class="font-bold">${this.config.hide_team_data? '#'+team.rank : team.teamName}</span>
+                                <span class="font-bold">${this.shouldHideTeamData()? '#'+team.rank : team.teamName}</span>
                                 <span>${medal}</span>
                             </div>
                             <div class="text-[10px] opacity-70 mt-auto">${team.public_vote_percent!=null? team.public_vote_percent + '% vote' : ''}</div>
@@ -262,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 circle.setAttribute('stroke-width', stroke.toString());
                 circle.setAttribute('stroke-dasharray', `${dash} ${gap}`);
                 circle.setAttribute('stroke-dashoffset', (-cumulative * Math.PI * 2 * radius).toString());
-                circle.setAttribute('data-label', this.config.hide_team_data? '#'+t.rank : t.teamName);
+                circle.setAttribute('data-label', this.shouldHideTeamData()? '#'+t.rank : t.teamName);
                 svg.appendChild(circle);
                 cumulative += frac;
             });
@@ -272,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 data.forEach((t,i)=>{
                     const item = document.createElement('div');
                     item.className='flex items-center gap-1';
-                    item.innerHTML = `<span class="inline-block w-3 h-3" style="background:hsl(0,0%,${15+i*8}%);"></span><span class="text-[10px] uppercase tracking-wide">${this.config.hide_team_data? '#'+t.rank : t.teamName} – ${t.public_vote_percent}%</span>`;
+                    item.innerHTML = `<span class="inline-block w-3 h-3" style="background:hsl(0,0%,${15+i*8}%);"></span><span class="text-[10px] uppercase tracking-wide">${this.shouldHideTeamData()? '#'+t.rank : t.teamName} – ${t.public_vote_percent}%</span>`;
                     legend.appendChild(item);
                 });
             }
@@ -523,10 +543,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.dataset.index = index;
                 card.innerHTML = `
                     <div class="overflow-hidden h-48">
-                        <img src="${team.images[0]}" alt="${team.teamName}" class="w-full h-full object-cover">
+                        <img src="${team.images[0]}" alt="${this.getDisplayName(team)}" class="w-full h-full object-cover">
                     </div>
                     <div class="p-4">
-                        <h3 class="font-bold text-lg truncate">${team.teamName}</h3>
+                        <h3 class="font-bold text-lg truncate">${this.getDisplayName(team)}</h3>
                     </div>
                 `;
                 card.addEventListener('click', () => this.openModal(index));
@@ -557,7 +577,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (team.images && team.images.length > 0) {
                 const imageUrl = team.images[0];
                 this.elements.modalImage.src = imageUrl;
-                this.elements.modalImage.alt = `Image for ${team.teamName}`;
+                this.elements.modalImage.alt = `Image for ${this.getDisplayName(team)}`;
                 this.elements.modalImage.classList.add('loaded'); // Ensure the image is visible
             } else {
                 this.elements.modalImage.src = '';
@@ -565,7 +585,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 this.elements.modalImage.classList.remove('loaded'); // Hide the image if no URL is available
             }
 
-            this.elements.modalTeamName.textContent = team.teamName;
+            this.elements.modalTeamName.textContent = this.getDisplayName(team);
             this.resetPanZoom();
         }
 
@@ -716,11 +736,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const id = params.get('id');
             if (id) {
                 const teamIndex = this.teams.findIndex(t => {
-                    if (this.config.hide_team_data) {
-                        return t.rank.toString() === id;
-                    } else {
-                        return t.team_number === id;
+                    if (this.shouldHideTeamData()) {
+                        return t.rank != null && t.rank.toString() === id;
                     }
+                    return t.team_number === id;
                 });
                 if (teamIndex !== -1) {
                     this.openModal(teamIndex);
@@ -734,7 +753,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 url.searchParams.delete('id');
             } else {
                 const team = this.teams[this.currentTeamIndex];
-                const id = this.config.hide_team_data ? team.rank : team.team_number;
+                const id = this.shouldHideTeamData() ? team.rank : team.team_number;
                 url.searchParams.set('id', id);
             }
             history.pushState({}, '', url);
@@ -863,7 +882,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const caption = document.createElement('div');
                 caption.className = 'slide-caption';
                 caption.style.bottom = '4rem'; // Position higher to avoid dots overlap
-                caption.textContent = this.config.hide_team_data ? `Submission #${team.rank}` : team.teamName;
+                caption.textContent = this.shouldHideTeamData() ? `Submission #${team.rank}` : team.teamName;
                 slide.appendChild(caption);
                 this.elements.carouselTrack.appendChild(slide);
 
@@ -1028,7 +1047,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const link = document.createElement('a');
                 link.href = this.elements.modalImage.src;
                 const team = this.teams[this.currentTeamIndex];
-                const id = this.config.hide_team_data ? team.rank : team.team_number;
+                const id = this.shouldHideTeamData() ? team.rank : team.team_number;
                 link.download = `${id}-gcc-photography.avif`;
                 link.click();
             });

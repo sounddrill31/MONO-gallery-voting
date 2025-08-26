@@ -35,7 +35,7 @@ flowchart LR
 flowchart LR
     subgraph "Phase 1: Submission (Offline + Online)"
         direction LR
-        A[Rules Explained + Coundown] --> B[Use [MONO-gallery-voting](https://github.com/sounddrill31/mono-gallery-voting) + Google Forms] --> C[Students Upload Images]
+        A[Rules Explained + Coundown] --> B[Use (MONO-gallery-voting) + Google Forms] --> C[Students Upload Images]
     end
 ```
 

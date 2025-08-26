@@ -13,11 +13,55 @@ We wrapped up submission collection and it turned out that:
 
 This website will help us organize the entire event, from Sharing a Submission Link with a form, to facilitating a last-round student voting after a judging round happens on a different link. 
 
-This was our first event but we're gonna make it better!
+This was our first event but we're gonna make it better next time! The over-dependence on Google is something that I plan to improve in the future. 
 
 This is a WIP project to turn a google forms link into a beautiful frontend website inspired by [MONO Design](https://mono.layogtima.com/) semi-automatically, with a little bit of manual work.
 
-If you wish to use this for your event, remember to edit [config.yaml](config.yaml)!
+If you wish to use this for your event, remember to edit [config.yaml](config.yaml)! TODO: Attach template google forms and google sheets data for reference. 
+
+
+## Event Info
+We had the event in three phases:
+### Phase 0: Planning (16th to 21st August 2025)
+```mmd
+flowchart LR
+    subgraph "Phase 0: Pre-Event (Offline)"
+        direction LR
+        A[Event Proposal] --> B[Gather RSVPs & Team Names] --> C[Student Gathering]
+    end
+```
+### Phase 1: Submission Session (23rd August 2025)
+```mmd
+flowchart LR
+    subgraph "Phase 1: Submission (Offline + Online)"
+        direction LR
+        A[Rules Explained + Coundown] --> B[Use [MONO-gallery-voting](https://github.com/sounddrill31/mono-gallery-voting) + Google Forms] --> C[Students Upload Images]
+    end
+```
+
+### Phase 1.5: Data Cleanup 
+Data is cleaned up and stored in another Google Sheet for [MONO-gallery-submissions](https://github.com/sounddrill31/mono-gallery-submissions). 
+### Phase 2: Judge Voting
+```mmd
+flowchart LR
+    subgraph "Phase 2: Judge Voting (Offline + Online)"
+        direction LR
+        A[Rules Explained to Judges] --> B[Use [MONO-gallery-submissions](https://github.com/sounddrill31/mono-gallery-submissions) to preview Images on Display/Projector] --> C[Judges Share Results] --> D[Top 10 Teams Continue to The Next Phase]
+    end
+```
+
+### Phase 2.5: Mid-Voting
+Data is sorted, and metrics are manually added for Results page. (Winners and pie chart is auto-generated).
+
+### Phase 3: Online Voting
+```mmd
+
+flowchart LR
+    subgraph "Phase 3: Online Voting (Online)"
+        direction LR
+        A[Countdown to Voting] --> B[Use [MONO-gallery-voting](https://github.com/sounddrill31/mono-gallery-voting) + Google Forms] --> C[Results (to be) Released]
+    end
+```
 
 ## Image Backends
 > [!WARNING]

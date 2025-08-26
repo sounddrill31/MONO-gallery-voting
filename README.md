@@ -35,7 +35,7 @@ flowchart LR
 flowchart LR
     subgraph "Phase 1: Submission (Offline + Online)"
         direction LR
-        A[Rules Explained + Coundown] --> B[Use (MONO-gallery-voting) + Google Forms] --> C[Students Upload Images]
+        A[Rules Explained + Coundown] --> B(Use MONO-gallery-voting + Google Forms) --> C[Students Upload Images]
     end
 ```
 
@@ -59,7 +59,7 @@ Data is sorted, and metrics are manually added for Results page. (Winners and pi
 flowchart LR
     subgraph "Phase 3: Online Voting (Online)"
         direction LR
-        A[Countdown to Voting] --> B(Use MONO-gallery-voting) + Google Forms] --> C[Results (to be) Released]
+        A[Countdown to Voting] --> B(Use MONO-gallery-voting + Google Forms) --> C[Results yet to be Released]
     end
 ```
 

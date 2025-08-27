@@ -173,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
         openResultsModal() {
             const modal = document.getElementById('resultsModal');
             if (!modal) return;
-            this.prepareResultsData();
+            this.prepareResultsData(); // lightweight if already prepared
             modal.classList.remove('hidden');
             document.body.style.overflow = 'hidden';
             const closeBtn = document.getElementById('closeResultsModal');
@@ -195,106 +195,140 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         prepareResultsData() {
+            // If server already rendered results, just mark prepared and exit.
+            if (typeof RESULTS_PRERENDERED !== 'undefined' && RESULTS_PRERENDERED) {
+                this._resultsPrepared = true;
+                return;
+            }
             if (this._resultsPrepared) return;
-            this._resultsPrepared = true;
-            this.computeWinners();
-            this.buildPublicVoteChart();
-            this.renderExtraStats();
+            // Build and render in a single animation frame to keep UI responsive
+            // Cache computed data for subsequent opens.
+            if (!this._resultsCache) {
+                const hideTeamData = this.shouldHideTeamData();
+                // Pre-compute commonly needed sorted arrays only once.
+                const sortedByRank = [...this.teams].sort((a,b)=> (parseFloat(a.rank)||9999) - (parseFloat(b.rank)||9999));
+                const sortedByVote = [...this.teams].sort((a,b)=> {
+                    const av = (typeof a.public_vote_percent==='number')? a.public_vote_percent : -1;
+                    const bv = (typeof b.public_vote_percent==='number')? b.public_vote_percent : -1;
+                    if (bv !== av) return bv - av;
+                    return (parseFloat(a.rank)||9999) - (parseFloat(b.rank)||9999);
+                });
+                const winners = sortedByRank.slice(0,3);
+                const publicVoteData = this.teams.filter(t=> typeof t.public_vote_percent === 'number' && !isNaN(t.public_vote_percent));
+                this._resultsCache = { hideTeamData, sortedByRank, sortedByVote, winners, publicVoteData };
+            }
+            requestAnimationFrame(()=>{
+                this.computeWinners();
+                this.buildPublicVoteChart();
+                this.renderExtraStats();
+                this._resultsPrepared = true;
+            });
         }
 
         computeWinners() {
-            const teamsSorted = [...this.teams].sort((a,b)=> {
-                const ra = parseFloat(a.rank) || 9999;
-                const rb = parseFloat(b.rank) || 9999;
-                return ra - rb;
-            });
-            this._winners = teamsSorted.slice(0,3);
+            if (!this._resultsCache) return; // safety
+            const { winners, sortedByVote, hideTeamData } = this._resultsCache;
             const winnersList = document.getElementById('winnersList');
             if (winnersList && winnersList.children.length===0) {
-                this._winners.forEach((team,idx)=>{
+                let winnerHTML = '';
+                winners.forEach((team,idx)=>{
                     const medal = idx===0?'🥇':idx===1?'🥈':'🥉';
                     const percent = (team.public_vote_percent!=null)? `<span class="text-xs block mt-1 opacity-70">${team.public_vote_percent}% public vote</span>`: '';
-                    const card = document.createElement('div');
-                    card.className='winner-card mono-border p-4 flex flex-col gap-3';
-                    card.innerHTML = `
+                    winnerHTML += `
+                    <div class="winner-card mono-border p-4 flex flex-col gap-3">
                         <div class="aspect-square overflow-hidden border border-black/20">
-                            <img src="${team.images[0]}" alt="${team.teamName}" class="object-cover w-full h-full" />
+                            <img src="${team.images[0]}" alt="${team.teamName}" loading="lazy" class="object-cover w-full h-full" />
                         </div>
                         <div>
-                            <h4 class="font-bold tracking-wide text-sm">${medal} ${this.shouldHideTeamData()? 'Submission #'+team.rank : team.teamName}</h4>
+                            <h4 class="font-bold tracking-wide text-sm">${medal} ${hideTeamData? 'Submission #'+team.rank : team.teamName}</h4>
                             ${percent}
-                        </div>`;
-                    winnersList.appendChild(card);
+                        </div>
+                    </div>`;
                 });
+                winnersList.innerHTML = winnerHTML.trim();
             }
             const gallery = document.getElementById('winnerGallery');
             if (gallery && gallery.children.length===0) {
-                const sortedByVote = [...this.teams].sort((a,b)=>{
-                    const av = (a.public_vote_percent==null)? -1 : a.public_vote_percent;
-                    const bv = (b.public_vote_percent==null)? -1 : b.public_vote_percent;
-                    if (bv !== av) return bv - av;
-                    const ar = parseFloat(a.rank)||9999; const br = parseFloat(b.rank)||9999; return ar - br;
-                });
+                const LIMIT = this.config.results_gallery_limit || 50; // safeguard for very large contests
+                let galleryHTML = '';
                 sortedByVote.forEach((team,index)=>{
                     const medal = index<3 ? (index===0?'🥇':index===1?'🥈':'🥉') : '';
-                    const card = document.createElement('div');
-                    card.className='winner-gallery-card flex flex-col border border-black/30 bg-white hover:shadow-md transition-shadow';
-                    card.innerHTML = `
-                        <div class="h-40 overflow-hidden"><img src="${team.images[0]}" alt="${team.teamName}" class="object-cover w-full h-full" /></div>
+                    galleryHTML += `
+                    <div class="winner-gallery-card flex flex-col border border-black/30 bg-white hover:shadow-md transition-shadow">
+                        <div class="h-40 overflow-hidden"><img src="${team.images[0]}" alt="${team.teamName}" loading="lazy" class="object-cover w-full h-full" /></div>
                         <div class="p-3 flex flex-col flex-grow">
                             <div class="flex items-center justify-between text-xs font-mono mb-1">
-                                <span class="font-bold">${this.shouldHideTeamData()? '#'+team.rank : team.teamName}</span>
+                                <span class="font-bold">${hideTeamData? '#'+team.rank : team.teamName}</span>
                                 <span>${medal}</span>
                             </div>
                             <div class="text-[10px] opacity-70 mt-auto">${team.public_vote_percent!=null? team.public_vote_percent + '% vote' : ''}</div>
-                        </div>`;
-                    gallery.appendChild(card);
+                        </div>
+                    </div>`;
+                    if (index+1 === LIMIT) return; // stop early if limit reached
                 });
+                gallery.innerHTML = galleryHTML.trim();
+                // If limited and there are more, offer an expansion control without pre-building DOM.
+                if (sortedByVote.length > LIMIT) {
+                    const moreBtn = document.createElement('button');
+                    moreBtn.className = 'mono-btn mono-btn-secondary mt-4 text-xs';
+                    moreBtn.textContent = `Show All (${sortedByVote.length})`;
+                    moreBtn.addEventListener('click', ()=>{
+                        // Append remaining teams (string build for remainder only)
+                        let extraHTML='';
+                        for (let i=LIMIT;i<sortedByVote.length;i++) {
+                            const team = sortedByVote[i];
+                            const medal = i<3 ? (i===0?'🥇':i===1?'🥈':'🥉') : '';
+                            extraHTML += `
+                            <div class="winner-gallery-card flex flex-col border border-black/30 bg-white hover:shadow-md transition-shadow">
+                                <div class="h-40 overflow-hidden"><img src="${team.images[0]}" alt="${team.teamName}" loading="lazy" class="object-cover w-full h-full" /></div>
+                                <div class="p-3 flex flex-col flex-grow">
+                                    <div class="flex items-center justify-between text-xs font-mono mb-1">
+                                        <span class="font-bold">${hideTeamData? '#'+team.rank : team.teamName}</span>
+                                        <span>${medal}</span>
+                                    </div>
+                                    <div class="text-[10px] opacity-70 mt-auto">${team.public_vote_percent!=null? team.public_vote_percent + '% vote' : ''}</div>
+                                </div>
+                            </div>`;
+                        }
+                        gallery.insertAdjacentHTML('beforeend', extraHTML.trim());
+                        moreBtn.remove();
+                    });
+                    gallery.parentElement.appendChild(moreBtn);
+                }
             }
         }
 
         buildPublicVoteChart() {
             const container = document.getElementById('publicVoteChart');
             if (!container || container.childElementCount>0) return;
-            const data = this.teams.filter(t=> typeof t.public_vote_percent === 'number' && !isNaN(t.public_vote_percent));
+            if (!this._resultsCache) return;
+            const { publicVoteData, hideTeamData } = this._resultsCache;
+            const data = [...publicVoteData];
             if (!data.length) {
                 container.innerHTML = '<p class="text-sm opacity-60">No public vote data available.</p>';
                 return;
             }
-            const total = data.reduce((sum,t)=> sum + t.public_vote_percent, 0) || 1;
-            let cumulative = 0;
-            const size = 260; const radius = size/2; const stroke = radius;
-            const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
-            svg.setAttribute('viewBox',`0 0 ${size} ${size}`);
-            svg.classList.add('mono-pie');
             data.sort((a,b)=> b.public_vote_percent - a.public_vote_percent);
+            const total = data.reduce((sum,t)=> sum + t.public_vote_percent, 0) || 1;
+            const size = 260; const radius = size/2; const fullCirc = Math.PI * 2 * radius;
+            let cumulative = 0;
+            let circlesHTML = '';
             data.forEach((t,i)=>{
                 const value = t.public_vote_percent;
                 const frac = value/total;
-                const dash = frac * Math.PI * 2 * radius;
-                const gap = Math.PI * 2 * radius - dash;
-                const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
-                circle.setAttribute('r', radius.toString());
-                circle.setAttribute('cx', radius.toString());
-                circle.setAttribute('cy', radius.toString());
-                circle.setAttribute('fill','transparent');
-                circle.setAttribute('stroke',`hsl(0,0%,${15 + i*8}%)`);
-                circle.setAttribute('stroke-width', stroke.toString());
-                circle.setAttribute('stroke-dasharray', `${dash} ${gap}`);
-                circle.setAttribute('stroke-dashoffset', (-cumulative * Math.PI * 2 * radius).toString());
-                circle.setAttribute('data-label', this.shouldHideTeamData()? '#'+t.rank : t.teamName);
-                svg.appendChild(circle);
+                const dash = frac * fullCirc;
+                const gap = fullCirc - dash;
+                circlesHTML += `<circle r="${radius}" cx="${radius}" cy="${radius}" fill="transparent" stroke="hsl(0,0%,${15 + i*8}%)" stroke-width="${radius}" stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${-cumulative * fullCirc}" data-label="${hideTeamData? '#'+t.rank : t.teamName}"></circle>`;
                 cumulative += frac;
             });
-            container.appendChild(svg);
+            container.innerHTML = `<svg viewBox="0 0 ${size} ${size}" class="mono-pie">${circlesHTML}</svg>`;
             const legend = document.getElementById('publicVoteLegend');
             if (legend && legend.childElementCount===0) {
+                let legendHTML='';
                 data.forEach((t,i)=>{
-                    const item = document.createElement('div');
-                    item.className='flex items-center gap-1';
-                    item.innerHTML = `<span class="inline-block w-3 h-3" style="background:hsl(0,0%,${15+i*8}%);"></span><span class="text-[10px] uppercase tracking-wide">${this.shouldHideTeamData()? '#'+t.rank : t.teamName} – ${t.public_vote_percent}%</span>`;
-                    legend.appendChild(item);
+                    legendHTML += `<div class="flex items-center gap-1"><span class="inline-block w-3 h-3" style="background:hsl(0,0%,${15+i*8}%);"></span><span class="text-[10px] uppercase tracking-wide">${hideTeamData? '#'+t.rank : t.teamName} – ${t.public_vote_percent}%</span></div>`;
                 });
+                legend.innerHTML = legendHTML.trim();
             }
         }
 

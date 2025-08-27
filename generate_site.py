@@ -69,7 +69,7 @@ class GalleryGenerator:
 
 
             # Compute server-side results (winners, charts, extra stats) so modal opens instantly without heavy client JS loops
-            winners_html, winner_gallery_html, public_vote_svg, public_vote_legend, extra_stats_html = self.build_results_fragments()
+            winners_html, winner_gallery_html, public_vote_svg, public_vote_legend, extra_stats_html, winner_preloads = self.build_results_fragments()
 
             # Simple template replacements (ordered to avoid accidental re-replacement)
             replacements = {
@@ -81,6 +81,7 @@ class GalleryGenerator:
                 '{{PUBLIC_VOTE_CHART_SVG}}': public_vote_svg,
                 '{{PUBLIC_VOTE_LEGEND_HTML}}': public_vote_legend,
                 '{{EXTRA_STATS_HTML}}': extra_stats_html,
+                '{{WINNER_PRELOAD_LINKS}}': winner_preloads,
             }
             for k,v in replacements.items():
                 content = content.replace(k, v)
@@ -193,9 +194,9 @@ class GalleryGenerator:
 
     # ----------------- Server-Side Results Helpers -----------------
     def build_results_fragments(self):
-        """Return tuple of (winners_html, winner_gallery_html, public_vote_svg, public_vote_legend_html, extra_stats_html)."""
+        """Return tuple of (winners_html, winner_gallery_html, public_vote_svg, public_vote_legend_html, extra_stats_html, winner_preloads)."""
         if not self.teams_data:
-            return ('','','','','')
+            return ('','','','','','')
         # Determine if names should be hidden in results modal based on config
         hide_names = self.should_hide_names_server('results')
 
@@ -221,6 +222,16 @@ class GalleryGenerator:
                 f"</div>"
             )
         winners_html = ''.join(winners_fragments)
+
+        # Preload <link> tags for top winner images (improves perceived modal open)
+        winner_preloads = []
+        for team in winners:
+            img = (team.get('images') or [''])[0]
+            if not img:
+                continue
+            as_attr = 'image'
+            winner_preloads.append(f'<link rel="preload" href="{img}" as="{as_attr}" imagesrcset="{img}" />')
+        winner_preloads_html = '\n    '.join(winner_preloads)
 
         # Winner gallery: order by public vote desc then rank asc
         def vote_key(t):
@@ -270,7 +281,7 @@ class GalleryGenerator:
 
         # Extra stats
         extra_stats_html = self.render_extra_stats_server(hide_names)
-        return winners_html, winner_gallery_html, public_vote_svg, public_vote_legend, extra_stats_html
+        return winners_html, winner_gallery_html, public_vote_svg, public_vote_legend, extra_stats_html, winner_preloads_html
 
     def render_extra_stats_server(self, hide_names):
         stats = self.config.get('extra_stats') or {}

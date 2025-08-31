@@ -598,6 +598,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         closeModal() {
+            // Pause any playing video before closing
+            this.pauseActiveVideo();
             this.elements.modal.classList.add('hidden');
             this.elements.modal.classList.remove('flex');
             document.body.style.overflow = '';
@@ -610,34 +612,48 @@ document.addEventListener('DOMContentLoaded', () => {
             const videoEl = document.getElementById('modalVideo');
             const imgEl = this.elements.modalImage;
             const hintEl = document.querySelector('#imageModal .text-xs.text-gray-400');
-            if (team.is_video && team.video_embed_url) {
-                // Show iframe, hide image and controls for pan/zoom
-                if (videoEl) {
-                    videoEl.src = team.video_embed_url + '?rel=0';
+            const controlsEl = document.getElementById('image-controls');
+            const downloadBtn = document.getElementById('downloadBtn');
+
+            const enterVideoMode = () => {
+                // Pause any prior video first (defensive if switching video->video)
+                this.pauseActiveVideo();
+                if (videoEl && team.video_embed_url) {
+                    // Include enablejsapi=1 for pause support; keep rel=0 to limit related videos.
+                    const base = team.video_embed_url;
+                    const params = '?rel=0&enablejsapi=1';
+                    // Only set src if different to avoid reload flicker when navigating back to same video
+                    if (!videoEl.src || !videoEl.src.includes(team.video_embed_url)) {
+                        videoEl.src = base + params;
+                    }
                     videoEl.classList.remove('hidden');
                     videoEl.style.display = 'block';
-                    // Apply sizing: leave padding around edges so it sits below top controls and above bottom bar
                     videoEl.style.objectFit = 'contain';
-                    videoEl.style.padding = '80px 60px 140px 60px'; // top/right/bottom/left
+                    videoEl.style.padding = '80px 60px 140px 60px';
                     videoEl.style.boxSizing = 'border-box';
                 }
+                // Hide image
                 imgEl.classList.add('hidden');
                 imgEl.style.display = 'none';
-                // Disable pan/zoom controls visually
-                const ctrl = document.getElementById('image-controls');
-                if (ctrl) ctrl.style.visibility = 'hidden';
+                // Hide pan/zoom controls + hint
+                if (controlsEl) controlsEl.style.visibility = 'hidden';
                 if (hintEl) hintEl.style.display = 'none';
-            } else {
-                // Image mode
+                if (downloadBtn) downloadBtn.style.display = 'none';
+            };
+
+            const enterImageMode = () => {
+                // If leaving a video, pause it first.
+                this.pauseActiveVideo();
                 if (videoEl) {
-                    videoEl.src = '';
                     videoEl.classList.add('hidden');
                     videoEl.style.display = 'none';
                     videoEl.style.padding = '';
+                    // Do not clear src immediately; clearing can cause network abort noise. Lazy clear later.
+                    setTimeout(()=>{ if (videoEl.classList.contains('hidden')) videoEl.src = ''; }, 500);
                 }
                 if (team.images && team.images.length > 0) {
                     const imageUrl = team.images[0];
-                    imgEl.src = imageUrl;
+                    if (imgEl.src !== imageUrl) imgEl.src = imageUrl;
                     imgEl.alt = `Image for ${this.getDisplayName(team)}`;
                     imgEl.classList.remove('hidden');
                     imgEl.style.display = 'block';
@@ -645,21 +661,42 @@ document.addEventListener('DOMContentLoaded', () => {
                     imgEl.src = '';
                     imgEl.alt = 'No image available';
                 }
-                const ctrl = document.getElementById('image-controls');
-                if (ctrl) ctrl.style.visibility = 'visible';
+                if (controlsEl) controlsEl.style.visibility = 'visible';
                 if (hintEl) hintEl.style.display = '';
+                if (downloadBtn) downloadBtn.style.display = '';
                 this.resetPanZoom();
+            };
+
+            if (team.is_video && team.video_embed_url) {
+                enterVideoMode();
+            } else {
+                enterImageMode();
             }
+
             this.elements.modalTeamName.textContent = this.getDisplayName(team);
         }
 
+        // Post a pause command to the active YouTube iframe if present.
+        pauseActiveVideo() {
+            const iframe = document.getElementById('modalVideo');
+            if (!iframe || iframe.classList.contains('hidden') || !iframe.contentWindow) return;
+            try {
+                iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: '' }), '*');
+            } catch (e) {
+                // Silently ignore
+            }
+        }
+
         nextTeam() {
+            // Pause if current team is a video before switching
+            this.pauseActiveVideo();
             this.currentTeamIndex = (this.currentTeamIndex + 1) % this.teams.length;
             this.updateModalContent();
             this.updateURL();
         }
 
         prevTeam() {
+            this.pauseActiveVideo();
             this.currentTeamIndex = (this.currentTeamIndex - 1 + this.teams.length) % this.teams.length;
             this.updateModalContent();
             this.updateURL();
@@ -687,6 +724,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (e.key === '+' || e.key === '=') this.zoom(1.2);
                     if (e.key === '-' || e.key === '_') this.zoom(1/1.2);
                     if (e.key === '0') this.resetPanZoom();
+                }
+            });
+
+            // Pause video when page/tab loses visibility
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    this.pauseActiveVideo();
                 }
             });
         }
@@ -1142,3 +1186,87 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+/* --- Fallback Modal + Video Shim (appended) ---
+     Purpose: In case upstream build trimming removed class methods (openModal/updateModalContent),
+     this lightweight shim re-enables fullscreen preview with coexistence of image + YouTube video.
+     It only activates if required DOM elements exist and no other openModal is defined globally. */
+(function(){
+    if (window._galleryShimApplied) return;
+    const modal = document.getElementById('imageModal');
+    const img = document.getElementById('modalImage');
+    const iframe = document.getElementById('modalVideo');
+    if (!modal || !img || !iframe) return; // nothing to do
+    // Detect absence of existing modal logic: we expect a click handler on gallery cards setting a dataset index.
+    const anyCard = document.querySelector('[data-index]');
+    // If cards have onclick already (openModal in prototype), skip.
+    if (anyCard && anyCard.onclick) return;
+    window._galleryShimApplied = true;
+    console.warn('[gallery-shim] Activating fallback modal/video logic');
+
+    // Acquire teams data injected earlier
+    const teams = (typeof TEAMS_DATA_PLACEHOLDER !== 'undefined') ? TEAMS_DATA_PLACEHOLDER : [];
+    let current = 0;
+
+    function getTeam(i){ return teams[i]; }
+    function hide(el){ if(el){ el.classList.add('hidden'); el.style.display='none'; } }
+    function show(el,display='block'){ if(el){ el.classList.remove('hidden'); el.style.display=display; } }
+    function pauseVideo(){ if(!iframe || iframe.classList.contains('hidden')) return; try{ iframe.contentWindow.postMessage(JSON.stringify({event:'command',func:'pauseVideo',args:''}), '*'); }catch(e){} }
+
+    function update(){
+        const team = getTeam(current);
+        if(!team) return;
+        const nameEl = document.getElementById('modalTeamName');
+        const downloadBtn = document.getElementById('downloadBtn');
+        if (team.is_video && team.video_embed_url){
+            // Video mode
+            pauseVideo();
+            iframe.src = team.video_embed_url + '?rel=0&enablejsapi=1';
+            show(iframe);
+            hide(img);
+            iframe.style.objectFit='contain';
+            iframe.style.padding='80px 60px 140px 60px';
+            if (nameEl) nameEl.textContent = team.teamName || ('Submission #' + (team.rank||'?'));
+            const ctr = document.getElementById('image-controls'); if (ctr) ctr.style.visibility='hidden';
+            const hint = modal.querySelector('.text-xs.text-gray-400'); if (hint) hint.style.display='none';
+            if (downloadBtn) downloadBtn.style.display='none';
+        } else {
+            // Image mode
+            pauseVideo();
+            hide(iframe); iframe.style.padding='';
+            if (team.images && team.images.length) {
+                if (img.src !== team.images[0]) img.src = team.images[0];
+                img.alt = team.teamName || 'Submission';
+            } else { img.src=''; img.alt='No image'; }
+            show(img,'block');
+            const ctr = document.getElementById('image-controls'); if (ctr) ctr.style.visibility='visible';
+            const hint = modal.querySelector('.text-xs.text-gray-400'); if (hint) hint.style.display='';
+            if (nameEl) nameEl.textContent = team.teamName || ('Submission #' + (team.rank||'?'));
+            // Reset transforms
+            img.style.transform = 'scale(1) translate(0px,0px)';
+            if (downloadBtn) downloadBtn.style.display='';
+        }
+    }
+
+    function open(idx){ current = idx; update(); show(modal,'flex'); document.body.style.overflow='hidden'; }
+    function close(){ pauseVideo(); hide(modal); document.body.style.overflow=''; }
+    function next(){ pauseVideo(); current = (current+1)%teams.length; update(); }
+    function prev(){ pauseVideo(); current = (current-1+teams.length)%teams.length; update(); }
+
+    // Wire gallery cards (by order) if they exist
+    const cards = document.querySelectorAll('[data-index]');
+    cards.forEach(card=>{ card.addEventListener('click', ()=> open(parseInt(card.dataset.index,10))); });
+
+    document.getElementById('closeModal')?.addEventListener('click', close);
+    document.getElementById('nextBtn')?.addEventListener('click', next);
+    document.getElementById('prevBtn')?.addEventListener('click', prev);
+    document.addEventListener('keydown', e=>{
+        if (modal.classList.contains('flex')){
+            if (e.key==='Escape') close();
+            else if (e.key==='ArrowRight') next();
+            else if (e.key==='ArrowLeft') prev();
+        }
+    });
+    document.addEventListener('visibilitychange', ()=>{ if (document.hidden) pauseVideo(); });
+})();
+/* --- End Fallback Shim --- */

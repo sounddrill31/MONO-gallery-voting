@@ -122,6 +122,12 @@ def generate_teams_yaml(csv_path='data.csv', yaml_path='teams.yaml'):
                 if yt_match:
                     video_id = yt_match.group(1)
                     video_url = raw_media
+                    # Always include the downloaded thumbnail path in images so gallery/cards work.
+                    # The downloader saves thumbnails to public/image/<team_number>/Photo.avif
+                    thumb_path = f"image/{team_number}/Photo.avif"
+                    # Optionally, only append if file likely exists (still append even if missing to surface issues visually)
+                    if thumb_path not in images:
+                        images.append(thumb_path)
                 else:
                     images.append(f"image/{team_number}/Photo.avif")
         # (multi-image variant omitted for brevity in this dataset)

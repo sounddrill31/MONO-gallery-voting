@@ -624,6 +624,51 @@ document.addEventListener('DOMContentLoaded', () => {
             const openExternal = document.getElementById('openVideoExternally');
             const hintElPersistent = document.getElementById('panZoomHint');
             const hasVideo = !!team.video_embed_url;
+            // One-time global error listener to detect extension injected errors (e.g. Invidious/Piped redirect extensions)
+            if (!window._videoGlobalErrorHookAdded) {
+                window.addEventListener('error', (ev) => {
+                    const msg = String(ev.message || ev.error || '');
+                    if (/isOnInvidious/i.test(msg) || /TIMEOUT waiting for.*isOnInvidious/.test(msg)) {
+                        if (window._videoDebug) console.warn('[VideoEmbed] Detected extension interference (Invidious redirect timeout).');
+                        const iframe = document.getElementById('modalVideo');
+                        if (iframe && iframe.dataset.videoState === 'loading') {
+                            // Mark as extension-blocked so our fallback timer can react sooner
+                            iframe.dataset.videoState = 'ext-block';
+                        }
+                    }
+                }, true);
+                window._videoGlobalErrorHookAdded = true;
+            }
+            // Lazy-init global message listener once for YouTube readiness
+            if (!window._videoEmbedMessageListenerAdded) {
+                window.addEventListener('message', (e) => {
+                    // Some messages are string, some objects. We only care about YouTube player events.
+                    try {
+                        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+                        if (!data || typeof data !== 'object') return;
+                        if (data.event === 'onReady' || (data.info && data.event === 'infoDelivery')) {
+                            const iframe = document.getElementById('modalVideo');
+                            if (iframe && iframe.dataset.videoState === 'loading') {
+                                iframe.dataset.videoState = 'ready';
+                                if (iframe._fallbackTimer) clearTimeout(iframe._fallbackTimer);
+                                if (iframe._secondFallbackTimer) clearTimeout(iframe._secondFallbackTimer);
+                                if (window._videoDebug) console.log('[VideoEmbed] Player ready event received.');
+                                this._updateVideoDebugBadge('ready');
+                            }
+                        }
+                    } catch(_err) {/* ignore parse errors */}
+                });
+                window._videoEmbedMessageListenerAdded = true;
+            }
+            // Debug flag (query param ?debugVideo=1)
+            if (window.location.search.includes('debugVideo=1')) window._videoDebug = true;
+            if (window._videoDebug && !document.getElementById('videoDebugBadge')) {
+                const badge = document.createElement('div');
+                badge.id = 'videoDebugBadge';
+                badge.style.cssText = 'position:fixed;bottom:6px;left:6px;z-index:9999;background:#000;color:#0f0;font:10px monospace;padding:4px 6px;border:1px solid #0f0;opacity:.85;pointer-events:none;';
+                badge.textContent = 'video:idle';
+                document.body.appendChild(badge);
+            }
             if (hasVideo) {
                 this._lastVideoIndex = this.currentTeamIndex;
                 // Show iframe, hide image
@@ -637,34 +682,79 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     // Fallback timeout: if not loaded in 6s show overlay
                     videoEl.addEventListener('load', () => {
+                        // Treat generic load as success even if postMessage onReady is blocked by hardened browsers
                         if (videoErrorOverlay) videoErrorOverlay.classList.add('hidden');
-                        clearTimeout(videoEl._fallbackTimer);
+                        videoEl.dataset.videoState = 'ready';
+                        if (videoEl._fallbackTimer) clearTimeout(videoEl._fallbackTimer);
+                        if (videoEl._secondFallbackTimer) clearTimeout(videoEl._secondFallbackTimer);
+                        this._updateVideoDebugBadge('ready');
+                        if (window._videoDebug) console.log('[VideoEmbed] iframe load event -> ready');
                     });
                     videoEl._errorHandlerAdded = true;
                 }
                 clearTimeout(videoEl._fallbackTimer);
                 let embedUrl = team.video_embed_url;
-                // Ensure YouTube has enablejsapi=1 so we can pause via postMessage later
-                const yt = embedUrl.match(/youtube-nocookie\.com\/embed\/([a-zA-Z0-9_-]+)/) || embedUrl.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/);
-                if (yt) {
-                    const hasQuery = embedUrl.includes('?');
-                    if (!/([?&])enablejsapi=1/.test(embedUrl)) {
-                        embedUrl += (hasQuery ? '&' : '?') + 'enablejsapi=1';
-                    }
+                // Force standard YouTube embed domain (strip any prior nocookie usage entirely)
+                const isYouTube = /youtube\.com\/embed\//.test(embedUrl);
+                if (isYouTube && !/^https:\/\/www\.youtube\.com\//.test(embedUrl)) {
+                    embedUrl = embedUrl.replace('https://youtube.com/','https://www.youtube.com/');
                 }
-                if (videoEl.src !== embedUrl) {
-                    videoEl.src = embedUrl;
-                }
-                videoEl._fallbackTimer = setTimeout(()=>{
-                    // Heuristic: if still blank or about:blank
-                    try {
-                        if (!videoEl.contentWindow || videoEl.contentWindow.location.href === 'about:blank') {
-                            if (videoErrorOverlay) videoErrorOverlay.classList.remove('hidden');
+                if (isYouTube) {
+                    const paramsToEnsure = ['enablejsapi=1','playsinline=1','modestbranding=1','rel=0'];
+                    // origin param for hardened browsers
+                    const originParam = 'origin=' + encodeURIComponent(location.origin);
+                    paramsToEnsure.push(originParam);
+                    paramsToEnsure.forEach(p => {
+                        const key = p.split('=')[0];
+                        if (!new RegExp('[?&]'+key+'=').test(embedUrl)) {
+                            embedUrl += (embedUrl.includes('?') ? '&' : '?') + p;
                         }
-                    } catch(_e) { /* cross-origin access block -> assume loaded or show overlay later */ }
+                    });
+                    // Ensure controls present explicitly (some hardened builds default-hide UI)
+                    if (!/[?&]controls=/.test(embedUrl)) embedUrl += (embedUrl.includes('?') ? '&' : '?') + 'controls=1';
+                }
+                // Only set src if changed
+                if (videoEl.src !== embedUrl) {
+                    if (window._videoDebug) console.log('[VideoEmbed] Setting iframe src:', embedUrl);
+                    videoEl.dataset.videoState = 'loading';
+                    videoEl.src = embedUrl;
+                    this._updateVideoDebugBadge('loading');
+                } else {
+                    if (window._videoDebug) console.log('[VideoEmbed] Reusing existing iframe src.');
+                }
+                // Primary fallback: if still loading after 6s, show overlay & recovery (no domain switching needed now)
+                if (videoEl._fallbackTimer) clearTimeout(videoEl._fallbackTimer);
+                if (videoEl._secondFallbackTimer) clearTimeout(videoEl._secondFallbackTimer);
+                videoEl._fallbackTimer = setTimeout(() => {
+                    if (videoEl.dataset.videoState === 'ready') return; // success already
+                    // If an extension blocked YouTube (marked ext-block), auto-attempt piped mirror once
+                    const ytId = this._extractYouTubeId(videoEl.src || '');
+                    if (videoEl.dataset.videoState === 'ext-block' && ytId) {
+                        if (!videoEl._autoMirrorTried) {
+                            videoEl._autoMirrorTried = true;
+                            if (window._videoDebug) console.log('[VideoEmbed] Auto-switching to Piped mirror due to extension block');
+                            videoEl.dataset.videoState = 'loading';
+                            videoEl.src = 'https://piped.video/embed/' + ytId;
+                            this._updateVideoDebugBadge('mirror-auto');
+                            // Give mirror 5s; then if still not ready show overlay
+                            setTimeout(()=>{
+                                if (videoEl.dataset.videoState !== 'ready') {
+                                    if (window._videoDebug) console.log('[VideoEmbed] Mirror fallback also failed; showing overlay');
+                                    if (videoErrorOverlay) videoErrorOverlay.classList.remove('hidden');
+                                    this._addVideoRecoveryActions(videoErrorOverlay, team, videoEl);
+                                    this._updateVideoDebugBadge('error');
+                                }
+                            }, 5000);
+                            return;
+                        }
+                    }
+                    if (window._videoDebug) console.log('[VideoEmbed] Fallback timeout and not ready; showing overlay');
+                    if (videoErrorOverlay) videoErrorOverlay.classList.remove('hidden');
+                    this._addVideoRecoveryActions(videoErrorOverlay, team, videoEl);
+                    this._updateVideoDebugBadge('error');
                 }, 6000);
                 if (openExternal) {
-                    openExternal.href = team.video_embed_url.replace('youtube-nocookie.com','youtube.com');
+                    openExternal.href = team.video_embed_url.replace('youtube-nocookie.com','youtube.com'); // legacy safety
                 }
                 this.elements.imageContainer.classList.add('video-active');
                 this.elements.imageContainer.style.cursor = 'default';
@@ -722,11 +812,62 @@ document.addEventListener('DOMContentLoaded', () => {
             this.elements.modalTeamName.textContent = this.getDisplayName(team);
         }
 
+        _updateVideoDebugBadge(state) {
+            const badge = document.getElementById('videoDebugBadge');
+            if (!badge) return;
+            badge.textContent = 'video:' + state;
+        }
+
+        _extractYouTubeId(url) {
+            const m = url.match(/embed\/([a-zA-Z0-9_-]{6,})/);
+            return m ? m[1] : null;
+        }
+
+        _addVideoRecoveryActions(overlay, team, iframe) {
+            if (!overlay || overlay._enhanced) return;
+            overlay._enhanced = true;
+            const wrapper = document.createElement('div');
+            wrapper.style.marginTop = '0.75rem';
+            wrapper.style.display = 'flex';
+            wrapper.style.flexDirection = 'column';
+            wrapper.style.gap = '6px';
+            const ytId = this._extractYouTubeId(iframe.src) || this._extractYouTubeId(team.video_embed_url || '');
+            const makeBtn = (label, handler) => {
+                const b = document.createElement('button');
+                b.textContent = label;
+                b.style.cssText = 'background:#fff;color:#000;padding:6px 10px;font:12px monospace;border:1px solid #000;';
+                b.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); handler(); });
+                return b;
+            };
+            const retryStandard = makeBtn('Retry standard', () => {
+                if (!ytId) return;
+                iframe.dataset.videoState = 'loading';
+                iframe.src = 'https://www.youtube.com/embed/' + ytId + '?enablejsapi=1&playsinline=1&modestbranding=1&rel=0&origin=' + encodeURIComponent(location.origin) + '&controls=1';
+                this._updateVideoDebugBadge('retry-standard');
+                overlay.classList.add('hidden');
+            });
+            const piped = makeBtn('Use Piped mirror', () => {
+                if (!ytId) return;
+                iframe.dataset.videoState = 'loading';
+                iframe.src = 'https://piped.video/embed/' + ytId;
+                this._updateVideoDebugBadge('mirror-piped');
+                overlay.classList.add('hidden');
+            });
+            const external = makeBtn('Open in YouTube app', () => {
+                if (!ytId) return;
+                window.open('https://www.youtube.com/watch?v=' + ytId, '_blank');
+            });
+            wrapper.appendChild(retryStandard);
+            wrapper.appendChild(piped);
+            wrapper.appendChild(external);
+            overlay.appendChild(wrapper);
+        }
+
         pauseActiveVideo() {
             const videoEl = document.getElementById('modalVideo');
             if (!videoEl || videoEl.classList.contains('hidden')) return;
             const src = videoEl.src || '';
-            if (/youtube(-nocookie)?\.com\/embed\//.test(src)) {
+            if (/youtube\.com\/embed\//.test(src)) {
                 try {
                     videoEl.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*');
                 } catch(_e) { /* ignore */ }

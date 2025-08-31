@@ -401,10 +401,12 @@ main { font-size: 1.1rem; line-height: 1.65; }
 
 /* Video iframe spacing within modal */
 #image-container.video-active iframe#modalVideo {
-    padding-top: 2.5rem; /* space from top close button area */
-    padding-bottom: 2rem; /* space above bottom bar */
+    margin-top: 2.5rem; /* space from top close button area */
+    margin-bottom: 2rem; /* space above bottom bar */
     box-sizing: border-box;
-    max-height: calc(100% - 4.5rem);
+    height: calc(100% - 4.5rem); /* account for margins */
+    z-index: 5;
+    background: #000; /* ensure dark backdrop if letterboxed */
 }
 
 /* Hide hint whenever controls hidden via attribute/class fallback */

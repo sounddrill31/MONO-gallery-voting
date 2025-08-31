@@ -595,6 +595,20 @@ document.addEventListener('DOMContentLoaded', () => {
             this.elements.modal.classList.add('flex');
             document.body.style.overflow = 'hidden';
             this.updateURL();
+            // Defensive: if current team is NOT video, ensure image element is visible (handles rare race conditions)
+            const team = this.teams[this.currentTeamIndex];
+            if (!(team && team.is_video && team.video_embed_url)) {
+                const imgEl = this.elements.modalImage;
+                if (imgEl) {
+                    imgEl.classList.remove('hidden');
+                    imgEl.style.display = 'block';
+                }
+                const iframe = document.getElementById('modalVideo');
+                if (iframe) {
+                    iframe.classList.add('hidden');
+                    iframe.style.display = 'none';
+                }
+            }
         }
 
         closeModal() {
@@ -614,6 +628,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const hintEl = document.querySelector('#imageModal .text-xs.text-gray-400');
             const controlsEl = document.getElementById('image-controls');
             const downloadBtn = document.getElementById('downloadBtn');
+            let revealTimer = null;
 
             const enterVideoMode = () => {
                 // Pause any prior video first (defensive if switching video->video)
@@ -653,13 +668,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (team.images && team.images.length > 0) {
                     const imageUrl = team.images[0];
-                    if (imgEl.src !== imageUrl) imgEl.src = imageUrl;
-                    imgEl.alt = `Image for ${this.getDisplayName(team)}`;
-                    imgEl.classList.remove('hidden');
-                    imgEl.style.display = 'block';
+                    // Preload image first to avoid flash-of-hidden if large
+                    if (imgEl.dataset.currentSrc !== imageUrl) {
+                        const preImg = new Image();
+                        preImg.onload = () => {
+                            imgEl.src = imageUrl;
+                            imgEl.dataset.currentSrc = imageUrl;
+                            imgEl.alt = `Image for ${this.getDisplayName(team)}`;
+                            imgEl.classList.remove('hidden');
+                            imgEl.style.display = 'block';
+                            imgEl.style.opacity = '1';
+                            imgEl.style.backgroundImage = 'none';
+                            if (revealTimer) { clearTimeout(revealTimer); revealTimer = null; }
+                        };
+                        preImg.onerror = () => {
+                            // Fallback: still attempt to show whatever existing src we have
+                            imgEl.src = imageUrl;
+                            imgEl.dataset.currentSrc = imageUrl;
+                            imgEl.classList.remove('hidden');
+                            imgEl.style.display = 'block';
+                            imgEl.style.opacity = '1';
+                            if (revealTimer) { clearTimeout(revealTimer); revealTimer = null; }
+                        };
+                        // Start hidden but reserve space and add background placeholder (in case onload stalls)
+                        imgEl.style.opacity = '0';
+                        imgEl.classList.remove('hidden');
+                        imgEl.style.display = 'block';
+                        imgEl.style.backgroundSize = 'contain';
+                        imgEl.style.backgroundPosition = 'center center';
+                        imgEl.style.backgroundRepeat = 'no-repeat';
+                        imgEl.style.backgroundImage = `url('${imageUrl}')`; // last-resort fallback
+                        preImg.src = imageUrl;
+                        // Force reveal after 1s even if onload not fired (slow network / cached race)
+                        revealTimer = setTimeout(()=>{
+                            imgEl.style.opacity = '1';
+                        }, 1000);
+                    } else {
+                        // Same image as before; just ensure visible
+                        imgEl.classList.remove('hidden');
+                        imgEl.style.display = 'block';
+                        imgEl.style.opacity = '1';
+                    }
                 } else {
                     imgEl.src = '';
                     imgEl.alt = 'No image available';
+                    imgEl.classList.remove('hidden');
+                    imgEl.style.display = 'block';
+                    imgEl.style.opacity = '1';
                 }
                 if (controlsEl) controlsEl.style.visibility = 'visible';
                 if (hintEl) hintEl.style.display = '';
@@ -1167,8 +1222,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let teams, config;
     try {
         // In a generated file, these placeholders are replaced with actual JSON.
-        const teams = TEAMS_DATA_PLACEHOLDER;
-        const config = CONFIG_DATA_PLACEHOLDER;
+        teams = TEAMS_DATA_PLACEHOLDER;
+        config = CONFIG_DATA_PLACEHOLDER;
+        // Expose globally for fallback shim / debugging
+        window.__GALLERY_TEAMS__ = teams;
+        window.__GALLERY_CONFIG__ = config;
         if (!galleryInstance) {
             galleryInstance = new PhotoGallery(teams, config);
         }
@@ -1197,15 +1255,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const img = document.getElementById('modalImage');
     const iframe = document.getElementById('modalVideo');
     if (!modal || !img || !iframe) return; // nothing to do
-    // Detect absence of existing modal logic: we expect a click handler on gallery cards setting a dataset index.
-    const anyCard = document.querySelector('[data-index]');
-    // If cards have onclick already (openModal in prototype), skip.
-    if (anyCard && anyCard.onclick) return;
+    // If a proper gallery instance exists with openModal method, exit; else continue.
+    if (window.galleryInstance && typeof window.galleryInstance.openModal === 'function') return;
     window._galleryShimApplied = true;
     console.warn('[gallery-shim] Activating fallback modal/video logic');
 
     // Acquire teams data injected earlier
-    const teams = (typeof TEAMS_DATA_PLACEHOLDER !== 'undefined') ? TEAMS_DATA_PLACEHOLDER : [];
+    const teams = (window.__GALLERY_TEAMS__) ? window.__GALLERY_TEAMS__ : (typeof TEAMS_DATA_PLACEHOLDER !== 'undefined' ? TEAMS_DATA_PLACEHOLDER : []);
     let current = 0;
 
     function getTeam(i){ return teams[i]; }
@@ -1248,14 +1304,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function open(idx){ current = idx; update(); show(modal,'flex'); document.body.style.overflow='hidden'; }
+    function open(idx){
+        current = idx;
+        update();
+        show(modal,'flex');
+        document.body.style.overflow='hidden';
+        const team = getTeam(current);
+        if (!(team && team.is_video && team.video_embed_url)) {
+            // Ensure image element is visible and iframe hidden (belt & suspenders)
+            img.classList.remove('hidden');
+            img.style.display='block';
+            iframe.classList.add('hidden');
+            iframe.style.display='none';
+        }
+    }
     function close(){ pauseVideo(); hide(modal); document.body.style.overflow=''; }
     function next(){ pauseVideo(); current = (current+1)%teams.length; update(); }
     function prev(){ pauseVideo(); current = (current-1+teams.length)%teams.length; update(); }
 
     // Wire gallery cards (by order) if they exist
     const cards = document.querySelectorAll('[data-index]');
-    cards.forEach(card=>{ card.addEventListener('click', ()=> open(parseInt(card.dataset.index,10))); });
+    if (cards.length){
+        cards.forEach(card=>{ card.addEventListener('click', ()=> open(parseInt(card.dataset.index,10))); });
+    } else {
+        // If no cards (edge dev case), open first team automatically to prove image mode works
+        if (teams.length){ open(0); }
+    }
 
     document.getElementById('closeModal')?.addEventListener('click', close);
     document.getElementById('nextBtn')?.addEventListener('click', next);

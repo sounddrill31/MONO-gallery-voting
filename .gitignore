@@ -13,3 +13,4 @@ dist/
 
 #temp folder for downloads
 photos/* 
+old/*

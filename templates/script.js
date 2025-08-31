@@ -619,18 +619,45 @@ document.addEventListener('DOMContentLoaded', () => {
         updateModalContent() {
             const team = this.teams[this.currentTeamIndex];
             const videoEl = document.getElementById('modalVideo');
+            const videoErrorOverlay = document.getElementById('videoErrorOverlay');
+            const openExternal = document.getElementById('openVideoExternally');
             const hasVideo = !!team.video_embed_url;
             if (hasVideo) {
                 // Show iframe, hide image
                 videoEl.classList.remove('hidden');
                 this.elements.modalImage.classList.add('hidden');
                 // Set src only if changed (avoid reload flicker)
+                if (videoErrorOverlay) videoErrorOverlay.classList.add('hidden');
+                if (videoEl._errorHandlerAdded !== true) {
+                    videoEl.addEventListener('error', () => {
+                        if (videoErrorOverlay) videoErrorOverlay.classList.remove('hidden');
+                    });
+                    // Fallback timeout: if not loaded in 6s show overlay
+                    videoEl.addEventListener('load', () => {
+                        if (videoErrorOverlay) videoErrorOverlay.classList.add('hidden');
+                        clearTimeout(videoEl._fallbackTimer);
+                    });
+                    videoEl._errorHandlerAdded = true;
+                }
+                clearTimeout(videoEl._fallbackTimer);
                 if (videoEl.src !== team.video_embed_url) {
                     videoEl.src = team.video_embed_url;
+                }
+                videoEl._fallbackTimer = setTimeout(()=>{
+                    // Heuristic: if still blank or about:blank
+                    try {
+                        if (!videoEl.contentWindow || videoEl.contentWindow.location.href === 'about:blank') {
+                            if (videoErrorOverlay) videoErrorOverlay.classList.remove('hidden');
+                        }
+                    } catch(_e) { /* cross-origin access block -> assume loaded or show overlay later */ }
+                }, 6000);
+                if (openExternal) {
+                    openExternal.href = team.video_embed_url.replace('youtube-nocookie.com','youtube.com');
                 }
             } else {
                 videoEl.classList.add('hidden');
                 this.elements.modalImage.classList.remove('hidden');
+                if (videoErrorOverlay) videoErrorOverlay.classList.add('hidden');
                 if (team.images && team.images.length > 0) {
                     const imageUrl = team.images[0];
                     this.elements.modalImage.src = imageUrl;

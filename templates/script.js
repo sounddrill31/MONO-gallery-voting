@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.initialPan = { x: 0, y: 0 };
             this.phase = 'none';
             this.phaseReloadTimer = null;
+            this._openSeq = 0; // increments each open to invalidate old visibility enforcement loops
 
             this.elements = {
                 galleryGrid: document.getElementById('galleryGrid'),
@@ -589,6 +590,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         openModal(index) {
+            this._openSeq++; // new open sequence id
+            const seq = this._openSeq;
             this.currentTeamIndex = index;
             this.updateModalContent();
             const modal = this.elements.modal;
@@ -614,7 +617,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     iframe.style.display = 'none';
                 }
             }
-            this.ensureModalVisibility();
+            this.ensureModalVisibility(seq);
             if (new URLSearchParams(location.search).has('debug')) {
                 console.debug('[gallery] openModal', {index, team: this.teams[index]?.team_number, classList:[...modal.classList], style: {display: modal.style.display, opacity: modal.style.opacity}});
             }
@@ -627,6 +630,8 @@ document.addEventListener('DOMContentLoaded', () => {
             modal.classList.add('hidden');
             modal.classList.remove('flex');
             modal.style.opacity = '0.0001'; // keep tiny to allow CSS observers; will be reset on next open
+            // Invalidate any pending ensure loops so they don't resurrect modal
+            this._openSeq++;
             // Do not set display none inline; rely on hidden class so removing it restores flex inline style we set
             document.body.style.overflow = '';
             this.resetPanZoom();
@@ -1232,12 +1237,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Ensure modal truly visible: multiple RAF + timeout checks; reassert classes/styles if tampered.
-        ensureModalVisibility() {
+        ensureModalVisibility(seqAtOpen) {
             const modal = this.elements.modal;
             const debugOn = new URLSearchParams(location.search).has('debug');
             let attempts = 0;
             const maxAttempts = 6; // ~3 frames + a couple of timers
             const reassert = () => {
+                // Abort if a newer open/close happened
+                if (seqAtOpen !== this._openSeq) return;
                 if (!modal) return;
                 const hidden = modal.classList.contains('hidden');
                 const displayNone = getComputedStyle(modal).display === 'none';

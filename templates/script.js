@@ -591,8 +591,13 @@ document.addEventListener('DOMContentLoaded', () => {
         openModal(index) {
             this.currentTeamIndex = index;
             this.updateModalContent();
-            this.elements.modal.classList.remove('hidden');
-            this.elements.modal.classList.add('flex');
+            const modal = this.elements.modal;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            // Inline style enforcement (belt & suspenders)
+            modal.style.display = 'flex';
+            modal.style.opacity = '1';
+            modal.style.zIndex = '9999';
             document.body.style.overflow = 'hidden';
             this.updateURL();
             // Defensive: if current team is NOT video, ensure image element is visible (handles rare race conditions)
@@ -609,16 +614,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     iframe.style.display = 'none';
                 }
             }
+            this.ensureModalVisibility();
+            if (new URLSearchParams(location.search).has('debug')) {
+                console.debug('[gallery] openModal', {index, team: this.teams[index]?.team_number, classList:[...modal.classList], style: {display: modal.style.display, opacity: modal.style.opacity}});
+            }
         }
 
         closeModal() {
             // Pause any playing video before closing
             this.pauseActiveVideo();
-            this.elements.modal.classList.add('hidden');
-            this.elements.modal.classList.remove('flex');
+            const modal = this.elements.modal;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            modal.style.opacity = '0.0001'; // keep tiny to allow CSS observers; will be reset on next open
+            // Do not set display none inline; rely on hidden class so removing it restores flex inline style we set
             document.body.style.overflow = '';
             this.resetPanZoom();
             this.updateURL(true);
+            if (new URLSearchParams(location.search).has('debug')) {
+                console.debug('[gallery] closeModal', {classList:[...modal.classList], style:{display:modal.style.display, opacity:modal.style.opacity}});
+            }
         }
 
         updateModalContent() {
@@ -1215,6 +1230,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 link.click();
             });
         }
+
+        // Ensure modal truly visible: multiple RAF + timeout checks; reassert classes/styles if tampered.
+        ensureModalVisibility() {
+            const modal = this.elements.modal;
+            const debugOn = new URLSearchParams(location.search).has('debug');
+            let attempts = 0;
+            const maxAttempts = 6; // ~3 frames + a couple of timers
+            const reassert = () => {
+                if (!modal) return;
+                const hidden = modal.classList.contains('hidden');
+                const displayNone = getComputedStyle(modal).display === 'none';
+                if (hidden || displayNone) {
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                    modal.style.display = 'flex';
+                    modal.style.opacity = '1';
+                    modal.style.zIndex = '9999';
+                    if (debugOn) console.debug('[gallery] reassert modal visibility', {attempts});
+                }
+                if (++attempts < maxAttempts) {
+                    if (attempts <= 3) {
+                        requestAnimationFrame(reassert);
+                    } else {
+                        setTimeout(reassert, 60 * attempts);
+                    }
+                } else if (debugOn) {
+                    console.debug('[gallery] finalize ensureModalVisibility', {classList:[...modal.classList], display:getComputedStyle(modal).display});
+                }
+            };
+            requestAnimationFrame(reassert);
+        }
     }
 
     // This is a placeholder replacement. The actual data will be injected by the build script.
@@ -1229,6 +1275,23 @@ document.addEventListener('DOMContentLoaded', () => {
         window.__GALLERY_CONFIG__ = config;
         if (!galleryInstance) {
             galleryInstance = new PhotoGallery(teams, config);
+            // Ensure global reference for reliability block & external scripts
+            window.galleryInstance = galleryInstance;
+            // Diagnostic helper
+            window.galleryDiag = () => {
+                const inst = window.galleryInstance;
+                if (!inst) return null;
+                const m = inst.elements.modal;
+                return {
+                    modalClasses: m? [...m.classList]:[],
+                    modalComputedDisplay: m? getComputedStyle(m).display:undefined,
+                    modalInline: m? {display:m.style.display, opacity:m.style.opacity}: {},
+                    bodyOverflow: document.body.style.overflow,
+                    currentIndex: inst.currentTeamIndex,
+                    currentTeam: inst.teams[inst.currentTeamIndex]?.team_number,
+                    url: location.href
+                };
+            };
         }
     } catch (e) {
         // Fallback for development when viewing the template directly
@@ -1245,6 +1308,98 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+/* --- Reliability / Delegated Click + Watchdog Block ---
+   Goal: Address intermittent issue where clicking certain areas of a card updates the URL but
+   the modal does not become visible. Adds:
+   1. Capture-phase delegated click handler (and mousedown) to aggressively detect card intent.
+   2. Consistency watchdog that re-opens modal if URL ?id=... present but modal hidden.
+   3. popstate listener + periodic poll for deep links.
+   4. Optional debug logging enabled via ?debug (add &debug to URL).
+*/
+(function(){
+    if (window.__GALLERY_RELIABILITY__) return; // singleton
+    window.__GALLERY_RELIABILITY__ = true;
+    const debug = new URLSearchParams(location.search).has('debug');
+    const log = (...args) => { if (debug) console.debug('[gallery-rel]', ...args); };
+    let lastUserCardIndex = null;
+
+    function findCardIndexFromEvent(ev){
+        const target = ev.target;
+        if (!target) return null;
+        const card = target.closest && target.closest('.team-card');
+        if (!card || !card.dataset.index) return null;
+        const idx = parseInt(card.dataset.index, 10);
+        return isNaN(idx) ? null : idx;
+    }
+
+    // Mousedown early capture to remember intent before any other handler might stop propagation.
+    document.addEventListener('mousedown', (e)=>{
+        const idx = findCardIndexFromEvent(e);
+        if (idx != null) {
+            lastUserCardIndex = idx;
+            log('capture mousedown on card', idx);
+        }
+    }, true);
+
+    // Click capture: ensure modal opens even if direct listener was somehow skipped.
+    document.addEventListener('click', (e)=>{
+        const idx = findCardIndexFromEvent(e);
+        if (idx != null) {
+            lastUserCardIndex = idx;
+            const inst = window.galleryInstance;
+            if (inst && inst.elements && inst.elements.modal.classList.contains('hidden')) {
+                log('delegated click open attempt', idx);
+                try { inst.openModal(idx); } catch(err){ log('openModal error', err); }
+                setTimeout(checkConsistency, 120);
+            }
+        }
+    }, true);
+
+    function resolveIndexFromId(id){
+        if (!window.galleryInstance) return null;
+        const g = galleryInstance;
+        const idx = g.teams.findIndex(t => {
+            if (g.shouldHideTeamData()) {
+                return t.rank != null && t.rank.toString() === id;
+            }
+            return t.team_number === id;
+        });
+        return idx >= 0 ? idx : null;
+    }
+
+    function checkConsistency(){
+    const inst = window.galleryInstance;
+    if (!inst || !inst.elements) return;
+    const modal = inst.elements.modal;
+        const params = new URLSearchParams(location.search);
+        const id = params.get('id');
+        if (!id) return;
+        if (modal.classList.contains('hidden')) {
+            const idx = resolveIndexFromId(id);
+            if (idx != null) {
+                log('watchdog reopening modal for id', id, 'idx', idx);
+                try { inst.openModal(idx); } catch(err){ log('reopen error', err); }
+            } else {
+                log('watchdog id present but no team match', id);
+            }
+        }
+    }
+
+    // Deep-link support & history navigation resilience.
+    window.addEventListener('popstate', () => {
+        log('popstate');
+        setTimeout(checkConsistency, 50);
+    });
+
+    // Periodic poll (low frequency) to catch any external code hiding modal.
+    const POLL_MS = 4000;
+    setInterval(checkConsistency, POLL_MS);
+
+    // Initial consistency check after main script likely initialized.
+    setTimeout(checkConsistency, 500);
+})();
+/* --- End Reliability Block --- */
+
 /* --- Fallback Modal + Video Shim (appended) ---
      Purpose: In case upstream build trimming removed class methods (openModal/updateModalContent),
      this lightweight shim re-enables fullscreen preview with coexistence of image + YouTube video.
@@ -1256,7 +1411,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const iframe = document.getElementById('modalVideo');
     if (!modal || !img || !iframe) return; // nothing to do
     // If a proper gallery instance exists with openModal method, exit; else continue.
-    if (window.galleryInstance && typeof window.galleryInstance.openModal === 'function') return;
+    if (window.galleryInstance && typeof window.galleryInstance.openModal === 'function') {
+        return; // primary logic active; no shim needed
+    }
     window._galleryShimApplied = true;
     console.warn('[gallery-shim] Activating fallback modal/video logic');
 

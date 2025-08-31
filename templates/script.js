@@ -607,20 +607,50 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateModalContent() {
             const team = this.teams[this.currentTeamIndex];
-            // Ensure the image URL is valid and set it to the modal image
-            if (team.images && team.images.length > 0) {
-                const imageUrl = team.images[0];
-                this.elements.modalImage.src = imageUrl;
-                this.elements.modalImage.alt = `Image for ${this.getDisplayName(team)}`;
-                this.elements.modalImage.classList.add('loaded'); // Ensure the image is visible
+            const videoEl = document.getElementById('modalVideo');
+            const imgEl = this.elements.modalImage;
+            const hintEl = document.querySelector('#imageModal .text-xs.text-gray-400');
+            if (team.is_video && team.video_embed_url) {
+                // Show iframe, hide image and controls for pan/zoom
+                if (videoEl) {
+                    videoEl.src = team.video_embed_url + '?rel=0';
+                    videoEl.classList.remove('hidden');
+                    videoEl.style.display = 'block';
+                    // Apply sizing: leave padding around edges so it sits below top controls and above bottom bar
+                    videoEl.style.objectFit = 'contain';
+                    videoEl.style.padding = '80px 60px 140px 60px'; // top/right/bottom/left
+                    videoEl.style.boxSizing = 'border-box';
+                }
+                imgEl.classList.add('hidden');
+                imgEl.style.display = 'none';
+                // Disable pan/zoom controls visually
+                const ctrl = document.getElementById('image-controls');
+                if (ctrl) ctrl.style.visibility = 'hidden';
+                if (hintEl) hintEl.style.display = 'none';
             } else {
-                this.elements.modalImage.src = '';
-                this.elements.modalImage.alt = 'No image available';
-                this.elements.modalImage.classList.remove('loaded'); // Hide the image if no URL is available
+                // Image mode
+                if (videoEl) {
+                    videoEl.src = '';
+                    videoEl.classList.add('hidden');
+                    videoEl.style.display = 'none';
+                    videoEl.style.padding = '';
+                }
+                if (team.images && team.images.length > 0) {
+                    const imageUrl = team.images[0];
+                    imgEl.src = imageUrl;
+                    imgEl.alt = `Image for ${this.getDisplayName(team)}`;
+                    imgEl.classList.remove('hidden');
+                    imgEl.style.display = 'block';
+                } else {
+                    imgEl.src = '';
+                    imgEl.alt = 'No image available';
+                }
+                const ctrl = document.getElementById('image-controls');
+                if (ctrl) ctrl.style.visibility = 'visible';
+                if (hintEl) hintEl.style.display = '';
+                this.resetPanZoom();
             }
-
             this.elements.modalTeamName.textContent = this.getDisplayName(team);
-            this.resetPanZoom();
         }
 
         nextTeam() {

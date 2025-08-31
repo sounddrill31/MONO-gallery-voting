@@ -26,6 +26,84 @@ from PIL import Image
 import pillow_avif  # registers AVIF support in Pillow
 import fitz  # PyMuPDF for PDF rendering
 
+# ---------------- YouTube Thumbnail Support -----------------
+YOUTUBE_REGEX = re.compile(r'(?:https?:)?//(?:www\.|m\.)?(?:youtube\.com|youtu\.be)/', re.IGNORECASE)
+
+def extract_youtube_id(url: str):
+    """Extract a YouTube video ID from various possible URL formats.
+    Supports:
+      https://www.youtube.com/watch?v=VIDEOID
+      https://youtu.be/VIDEOID
+      https://www.youtube.com/embed/VIDEOID
+      https://www.youtube.com/shorts/VIDEOID
+    Returns None if no ID can be parsed.
+    """
+    if not url:
+        return None
+    try:
+        # Remove query params except v
+        # 1. youtu.be short link
+        m = re.search(r'youtu\.be/([A-Za-z0-9_-]{6,})', url)
+        if m:
+            return m.group(1)
+        # 2. watch?v=
+        m = re.search(r'[?&]v=([A-Za-z0-9_-]{6,})', url)
+        if m:
+            return m.group(1)
+        # 3. embed/
+        m = re.search(r'/embed/([A-Za-z0-9_-]{6,})', url)
+        if m:
+            return m.group(1)
+        # 4. shorts/
+        m = re.search(r'/shorts/([A-Za-z0-9_-]{6,})', url)
+        if m:
+            return m.group(1)
+    except Exception:
+        return None
+    return None
+
+def download_youtube_thumbnail(video_id: str, output_base: str, uncompressed=False) -> bool:
+    """Download a YouTube thumbnail (tries maxres then hq) and convert to AVIF unless uncompressed.
+    output_base should be the desired final AVIF path (e.g., /.../Photo.avif)
+    """
+    if not video_id:
+        return False
+    # Candidate thumbnail URLs high -> lower
+    candidates = [
+        f"https://i.ytimg.com/vi/{video_id}/maxresdefault.jpg",
+        f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+    ]
+    session = requests.Session()
+    temp_jpg = None
+    for url in candidates:
+        try:
+            r = session.get(url, timeout=10)
+            if r.status_code == 200 and r.headers.get('content-type','').startswith('image') and len(r.content) > 5000:
+                # Write temp jpg next to final path
+                temp_jpg = output_base.replace('.avif', '.jpg')
+                os.makedirs(os.path.dirname(temp_jpg), exist_ok=True)
+                with open(temp_jpg, 'wb') as f:
+                    f.write(r.content)
+                print(f"   ✓ Downloaded YouTube thumbnail ({os.path.basename(url)}) for video {video_id}")
+                break
+            else:
+                print(f"   ⚠️ Thumbnail candidate {url} not suitable (status={r.status_code}, size={len(r.content)})")
+        except Exception as e:
+            print(f"   ⚠️ Error fetching thumbnail {url}: {e}")
+    if not temp_jpg:
+        print("   ✗ Could not fetch any YouTube thumbnail")
+        return False
+    if uncompressed:
+        # Keep the jpg as final (rename to Photo.jpg instead of avif path)
+        # Adjust: rename temp_jpg to match output_base without avif
+        return True  # JPG already saved
+    # Convert to AVIF
+    avif_path = convert_to_avif_high_quality(temp_jpg)
+    if avif_path:
+        return True
+    else:
+        return False
+
 
 # For HEIF/HEIC support lazy load
 _has_heif_support = False
@@ -240,6 +318,17 @@ def organize_files_from_csv(csv_path, out_dir='dist/image', uncompressed=False):
             if has_single_submission:
                 url = row.get('Submission Image', '').strip()
                 if url:
+                    # Detect YouTube and fetch thumbnail instead of full media
+                    if YOUTUBE_REGEX.search(url):
+                        vid = extract_youtube_id(url)
+                        target = os.path.join(team_dir, 'Photo.avif')
+                        print(f" ▶️ YouTube submission detected, downloading thumbnail for video id={vid} ...")
+                        if download_youtube_thumbnail(vid, target, uncompressed):
+                            succ += 1
+                        else:
+                            print(" ✗ Failed to obtain YouTube thumbnail")
+                            fail += 1
+                        continue
                     fid = extract_file_id_from_drive_url(url)
                     if fid:
                         target = os.path.join(team_dir, 'Photo.avif')
@@ -259,6 +348,16 @@ def organize_files_from_csv(csv_path, out_dir='dist/image', uncompressed=False):
                 for i in range(1, 5):
                     url = row.get(f'Submission Image {i}', '').strip()
                     if not url:
+                        continue
+                    if YOUTUBE_REGEX.search(url):
+                        vid = extract_youtube_id(url)
+                        target = os.path.join(team_dir, f'Photo{i}.avif')
+                        print(f" ▶️ YouTube submission detected (Photo {i}), downloading thumbnail for video id={vid} ...")
+                        if download_youtube_thumbnail(vid, target, uncompressed):
+                            succ += 1
+                        else:
+                            print(f" ✗ Failed YouTube thumbnail (Photo {i})")
+                            fail += 1
                         continue
                     fid = extract_file_id_from_drive_url(url)
                     if not fid:

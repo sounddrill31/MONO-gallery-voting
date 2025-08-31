@@ -112,9 +112,18 @@ def generate_teams_yaml(csv_path='data.csv', yaml_path='teams.yaml'):
             continue
 
         images = []
+        video_id = None
+        video_url = None
         if idx_submission_image is not None and idx_submission_image < len(row):
-            if row[idx_submission_image].strip():
-                images.append(f"image/{team_number}/Photo.avif")
+            raw_media = row[idx_submission_image].strip()
+            if raw_media:
+                # Detect YouTube video link patterns
+                yt_match = re.search(r'(?:https?:)?//(?:www\.|m\.)?(?:youtube\.com|youtu\.be)/(?:watch\?v=|embed/|shorts/)?([A-Za-z0-9_-]{6,})', raw_media)
+                if yt_match:
+                    video_id = yt_match.group(1)
+                    video_url = raw_media
+                else:
+                    images.append(f"image/{team_number}/Photo.avif")
         # (multi-image variant omitted for brevity in this dataset)
 
         position = (row[idx_position] if idx_position is not None and idx_position < len(row) else '').strip()
@@ -134,7 +143,11 @@ def generate_teams_yaml(csv_path='data.csv', yaml_path='teams.yaml'):
             "images": images,
             "description": "Submission.",
             "rank": position if position else i + 1,
-            "public_vote_percent": public_vote_percent
+            "public_vote_percent": public_vote_percent,
+            "is_video": bool(video_id),
+            "video_id": video_id,
+            "video_embed_url": f"https://www.youtube.com/embed/{video_id}" if video_id else None,
+            "video_original_url": video_url if video_id else None
         }
         teams.append(team_data)
 

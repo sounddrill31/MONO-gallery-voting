@@ -13,6 +13,7 @@ prepare = "pixi run download && pixi run prep_yaml && pixi run generate"
 web = "echo 'Open http://localhost:8000 to see the web page!' && python -m 'http.server' 8000 -d 'dist'"
 start = "pixi run prepare && echo 'Open http://localhost:8000 to see the web page!' && python -m 'http.server' 8000 -d 'dist'"
 ci = "python ci.py"
+preparedev = "pixi run prepare && pixi run web"
 quickdev = "pixi run prep_yaml && pixi run generate && pixi run web"
 
 [dependencies]

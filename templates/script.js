@@ -575,9 +575,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 const card = document.createElement('div');
                 card.className = 'team-card bg-white rounded-lg shadow-md border border-gray-200';
                 card.dataset.index = index;
+                let thumb = team.images && team.images[0];
+                if ((!thumb || thumb === '') && team.video_embed_url) {
+                    // Derive YouTube thumbnail if possible
+                    const ytMatch = team.video_embed_url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/);
+                    if (ytMatch) {
+                        thumb = `https://img.youtube.com/vi/${ytMatch[1]}/hqdefault.jpg`;
+                    } else {
+                        // Generic placeholder (plain 1x1 svg data uri)
+                        thumb = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="225" viewBox="0 0 400 225"><rect width="400" height="225" fill="black"/><text x="50%" y="50%" fill="white" font-family="monospace" font-size="24" text-anchor="middle" dominant-baseline="middle">VIDEO</text></svg>';
+                    }
+                }
                 card.innerHTML = `
                     <div class="overflow-hidden h-48">
-                        <img src="${team.images[0]}" alt="${this.getDisplayName(team)}" class="w-full h-full object-cover">
+                        <img src="${thumb || ''}" alt="${this.getDisplayName(team)}" class="w-full h-full object-cover">
                     </div>
                     <div class="p-4">
                         <h3 class="font-bold text-lg truncate">${this.getDisplayName(team)}</h3>
@@ -607,20 +618,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateModalContent() {
             const team = this.teams[this.currentTeamIndex];
-            // Ensure the image URL is valid and set it to the modal image
-            if (team.images && team.images.length > 0) {
-                const imageUrl = team.images[0];
-                this.elements.modalImage.src = imageUrl;
-                this.elements.modalImage.alt = `Image for ${this.getDisplayName(team)}`;
-                this.elements.modalImage.classList.add('loaded'); // Ensure the image is visible
+            const videoEl = document.getElementById('modalVideo');
+            const hasVideo = !!team.video_embed_url;
+            if (hasVideo) {
+                // Show iframe, hide image
+                videoEl.classList.remove('hidden');
+                this.elements.modalImage.classList.add('hidden');
+                // Set src only if changed (avoid reload flicker)
+                if (videoEl.src !== team.video_embed_url) {
+                    videoEl.src = team.video_embed_url;
+                }
             } else {
-                this.elements.modalImage.src = '';
-                this.elements.modalImage.alt = 'No image available';
-                this.elements.modalImage.classList.remove('loaded'); // Hide the image if no URL is available
+                videoEl.classList.add('hidden');
+                this.elements.modalImage.classList.remove('hidden');
+                if (team.images && team.images.length > 0) {
+                    const imageUrl = team.images[0];
+                    this.elements.modalImage.src = imageUrl;
+                    this.elements.modalImage.alt = `Image for ${this.getDisplayName(team)}`;
+                    this.elements.modalImage.classList.add('loaded');
+                } else {
+                    this.elements.modalImage.src = '';
+                    this.elements.modalImage.alt = 'No image available';
+                    this.elements.modalImage.classList.remove('loaded');
+                }
+            }
+
+            // Control visibility depending on video or disable flag
+            const disableByTeam = !!team.disable_controls;
+            const disableByConfig = this.config.disable_controls_if_youtube && hasVideo;
+            const disableControls = disableByTeam || disableByConfig;
+            const ctrlContainer = document.getElementById('image-controls');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const hintEl = document.querySelector('#imageModal .text-xs.text-gray-400');
+            if (disableControls) {
+                if (ctrlContainer) ctrlContainer.classList.add('hidden');
+                if (downloadBtn) downloadBtn.classList.add('hidden');
+                if (hintEl) hintEl.classList.add('hidden');
+            } else {
+                if (ctrlContainer) ctrlContainer.classList.remove('hidden');
+                if (downloadBtn) downloadBtn.classList.remove('hidden');
+                if (hintEl) hintEl.classList.remove('hidden');
+            }
+
+            // If disabling controls also neutralize pan/zoom state
+            if (disableControls || hasVideo) {
+                this.resetPanZoom();
+            } else {
+                this.resetPanZoom(); // still reset when switching images
             }
 
             this.elements.modalTeamName.textContent = this.getDisplayName(team);
-            this.resetPanZoom();
         }
 
         nextTeam() {
@@ -643,11 +690,23 @@ document.addEventListener('DOMContentLoaded', () => {
             this.elements.zoomOutBtn.addEventListener('click', () => this.zoom(1 / 1.2));
             this.elements.resetPanZoomBtn.addEventListener('click', () => this.resetPanZoom());
 
-            this.elements.imageContainer.addEventListener('mousedown', (e) => this.startPanDrag(e));
-            this.elements.imageContainer.addEventListener('mousemove', (e) => this.panDrag(e));
+            this.elements.imageContainer.addEventListener('mousedown', (e) => {
+                const team = this.teams[this.currentTeamIndex];
+                if (team && (team.video_embed_url || team.disable_controls || (this.config.disable_controls_if_youtube && team.video_embed_url))) return;
+                this.startPanDrag(e);
+            });
+            this.elements.imageContainer.addEventListener('mousemove', (e) => {
+                const team = this.teams[this.currentTeamIndex];
+                if (team && (team.video_embed_url || team.disable_controls || (this.config.disable_controls_if_youtube && team.video_embed_url))) return;
+                this.panDrag(e);
+            });
             this.elements.imageContainer.addEventListener('mouseup', () => this.endPanDrag());
             this.elements.imageContainer.addEventListener('mouseleave', () => this.endPanDrag());
-            this.elements.imageContainer.addEventListener('wheel', (e) => this.handleWheelZoom(e), { passive: false });
+            this.elements.imageContainer.addEventListener('wheel', (e) => {
+                const team = this.teams[this.currentTeamIndex];
+                if (team && (team.video_embed_url || team.disable_controls || (this.config.disable_controls_if_youtube && team.video_embed_url))) return;
+                this.handleWheelZoom(e);
+            }, { passive: false });
 
             document.addEventListener('keydown', (e) => {
                 if (this.elements.modal.classList.contains('flex')) {
@@ -911,7 +970,16 @@ document.addEventListener('DOMContentLoaded', () => {
             topTeams.forEach((team, index) => {
                 const slide = document.createElement('div');
                 slide.className = 'carousel-slide';
-                slide.style.backgroundImage = `url('${team.images[0]}')`;
+                let bg = team.images && team.images[0];
+                if ((!bg || bg==='') && team.video_embed_url) {
+                    const ytMatch = team.video_embed_url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/);
+                    if (ytMatch) {
+                        bg = `https://img.youtube.com/vi/${ytMatch[1]}/hqdefault.jpg`;
+                    } else {
+                        bg = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450"><rect width="800" height="450" fill="black"/><text x="50%" y="50%" fill="white" font-family="monospace" font-size="48" text-anchor="middle" dominant-baseline="middle">VIDEO</text></svg>';
+                    }
+                }
+                slide.style.backgroundImage = `url('${bg || ''}')`;
 
                 const caption = document.createElement('div');
                 caption.className = 'slide-caption';

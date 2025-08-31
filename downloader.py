@@ -210,6 +210,73 @@ def download_file_from_drive(file_id, output_base, uncompressed=False, max_retri
     return False
 
 
+DIRECT_IMAGE_EXTENSIONS = {
+    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.tif', '.heic', '.heif', '.avif'
+}
+
+VIDEO_PLATFORMS = (
+    'youtube.com', 'youtu.be', 'odysee.com', 'piped.', 'piped.video'
+)
+
+def is_video_platform(url: str) -> bool:
+    if not url:
+        return False
+    lower = url.lower()
+    return any(p in lower for p in VIDEO_PLATFORMS)
+
+def looks_like_direct_image(url: str) -> bool:
+    if not url:
+        return False
+    # Strip query/hash
+    path = re.split(r'[?#]', url)[0]
+    _, ext = os.path.splitext(path)
+    return ext.lower() in DIRECT_IMAGE_EXTENSIONS
+
+def download_direct_image(url: str, output_base: str, uncompressed=False):
+    """Download a direct image URL (non Google Drive). Convert to AVIF unless --uncompressed.
+    Returns True on success."""
+    try:
+        response = requests.get(url, stream=True, timeout=30)
+        if response.status_code != 200:
+            log_failure(f"Direct image download failed HTTP {response.status_code}: {url}")
+            return False
+        # Determine extension from URL first
+        raw_path = output_base
+        base_no_ext, _ = os.path.splitext(output_base)
+        # If caller passed .avif path, we will create temp original if converting
+        # Ensure parent
+        os.makedirs(os.path.dirname(output_base), exist_ok=True)
+        # Guess ext from URL or headers
+        path_part = re.split(r'[?#]', url)[0]
+        _, ext = os.path.splitext(path_part)
+        if not ext or ext.lower() not in DIRECT_IMAGE_EXTENSIONS:
+            ext = get_file_extension_from_headers(response.headers)
+        if ext == '.bin':
+            # Try to refine using content-type again; if still bin default to .jpg to let Pillow attempt
+            ext = '.jpg'
+        raw_original = base_no_ext + ext
+        with open(raw_original, 'wb') as f:
+            for chunk in response.iter_content(8192):
+                if chunk:
+                    f.write(chunk)
+        print(f"✓ Direct downloaded: {raw_original}")
+        if uncompressed:
+            # If uncompressed and target is .avif, just leave original file; don't rename.
+            return True
+        # Convert if not already avif
+        if ext.lower() == '.pdf':
+            avif_path = convert_pdf_to_avif(raw_original)
+            return bool(avif_path)
+        if ext.lower() != '.avif':
+            avif_path = convert_to_avif_high_quality(raw_original)
+            return bool(avif_path)
+        # Already avif
+        return True
+    except Exception as e:
+        log_failure(f"Direct image exception {url}: {e}")
+        return False
+
+
 def extract_team_number(team_str):
     m = re.search(r'Team (\d+)', team_str)
     return m.group(1) if m else team_str.replace('Team ', '').strip()
@@ -240,18 +307,28 @@ def organize_files_from_csv(csv_path, out_dir='dist/image', uncompressed=False):
             if has_single_submission:
                 url = row.get('Submission Image', '').strip()
                 if url:
-                    fid = extract_file_id_from_drive_url(url)
-                    if fid:
-                        target = os.path.join(team_dir, 'Photo.avif')
-                        print(f" 📥 Downloading Photo...")
-                        if download_file_from_drive(fid, target, uncompressed):
-                            succ += 1
-                        else:
-                            print(f" ✗ Failed Photo")
-                            fail += 1
+                    if is_video_platform(url):
+                        print(f" ▶️ Skipping video URL (will embed by frontend): {url}")
                     else:
-                        print(f" ⚠️ Invalid URL for Photo")
-                        fail += 1
+                        fid = extract_file_id_from_drive_url(url)
+                        target = os.path.join(team_dir, 'Photo.avif')
+                        if fid:
+                            print(f" 📥 Downloading Photo (Google Drive)...")
+                            if download_file_from_drive(fid, target, uncompressed):
+                                succ += 1
+                            else:
+                                print(f" ✗ Failed Photo")
+                                fail += 1
+                        elif looks_like_direct_image(url):
+                            print(f" 📥 Downloading Direct Image...")
+                            if download_direct_image(url, target, uncompressed):
+                                succ += 1
+                            else:
+                                print(f" ✗ Failed Direct Image")
+                                fail += 1
+                        else:
+                            print(f" ⚠️ Unrecognized URL (not drive or direct image): {url}")
+                            fail += 1
                 else:
                     print(f" ⚠️ No URL for Photo")
             else:

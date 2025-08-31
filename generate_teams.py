@@ -4,6 +4,7 @@ import os
 import re
 import yaml
 from datetime import datetime
+from urllib.parse import urlparse, parse_qs
 
 
 def generate_teams_yaml(csv_path='data.csv', yaml_path='teams.yaml'):
@@ -112,9 +113,50 @@ def generate_teams_yaml(csv_path='data.csv', yaml_path='teams.yaml'):
             continue
 
         images = []
+        video_embed_url = None
+        disable_controls = False
+
+        def detect_video(url_raw: str):
+            """Return an embeddable URL for supported video platforms (YouTube, Odysee, Piped) or None."""
+            if not url_raw:
+                return None
+            url = url_raw.strip()
+            lower = url.lower()
+            # YouTube standard watch URL
+            if 'youtube.com/watch' in lower or 'youtu.be/' in lower or 'youtube.com/shorts/' in lower:
+                vid = None
+                if 'youtu.be/' in lower:
+                    vid = url.split('/')[-1].split('?')[0]
+                elif 'youtube.com/shorts/' in lower:
+                    vid = url.split('/shorts/')[-1].split('?')[0]
+                else:
+                    qs = parse_qs(urlparse(url).query)
+                    vid = qs.get('v', [None])[0]
+                if vid:
+                    return f"https://www.youtube.com/embed/{vid}"
+            # Odysee: allow direct iframe of the canonical URL
+            if 'odysee.com/' in lower:
+                return url
+            # Piped instance
+            if 'piped.' in lower or 'piped.video' in lower:
+                parsed = urlparse(url)
+                qs = parse_qs(parsed.query)
+                vid = qs.get('v', [None])[0]
+                if vid:
+                    return f"{parsed.scheme}://{parsed.netloc}/embed/{vid}"
+                if '/embed/' in parsed.path:
+                    return url
+            return None
+
         if idx_submission_image is not None and idx_submission_image < len(row):
-            if row[idx_submission_image].strip():
-                images.append(f"image/{team_number}/Photo.avif")
+            raw_sub = row[idx_submission_image].strip()
+            if raw_sub:
+                emb = detect_video(raw_sub)
+                if emb:
+                    video_embed_url = emb
+                    disable_controls = True
+                else:
+                    images.append(f"image/{team_number}/Photo.avif")
         # (multi-image variant omitted for brevity in this dataset)
 
         position = (row[idx_position] if idx_position is not None and idx_position < len(row) else '').strip()
@@ -136,6 +178,10 @@ def generate_teams_yaml(csv_path='data.csv', yaml_path='teams.yaml'):
             "rank": position if position else i + 1,
             "public_vote_percent": public_vote_percent
         }
+        if video_embed_url:
+            team_data['video_embed_url'] = video_embed_url
+        if disable_controls:
+            team_data['disable_controls'] = True
         teams.append(team_data)
 
         # Collect extra stats per row

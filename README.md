@@ -19,6 +19,59 @@ This is a WIP project to turn a google forms link into a beautiful frontend webs
 
 If you wish to use this for your event, remember to edit [config.yaml](config.yaml)! TODO: Attach template google forms and google sheets data for reference. 
 
+## New (Media + Download) Features
+
+### 1. Direct Image URL Support
+Previously only Google Drive links were processed. Now if a submission field contains a direct image URL (ending in .jpg, .jpeg, .png, .gif, .bmp, .webp, .tiff, .heic, .heif, .avif) the downloader will:
+- Download it directly
+- Convert to AVIF (quality=80) just like Google Drive sourced images (unless you run with `--uncompressed`)
+- Skip conversion if it is already an AVIF (or you used `--uncompressed`)
+
+This allows hosting images on any static host or CDN. THIS IS WIP AND NOT WELL TESTED!
+
+### 2. Video Submission Embeds (YouTube / Odysee / Piped)
+If the submission URL is recognized as a video from:
+- YouTube (normal, youtu.be short links, Shorts)
+- Odysee (not well tested)
+- Piped (any instance domain containing `piped.` or `piped.video`) (not well tested)
+
+Then instead of attempting to download an image the site will embed the video in the fullscreen modal via an `<iframe>`.
+
+#### Control Behavior
+- A team entry with a video gets `video_embed_url` and `disable_controls: true` inside `teams.yaml`.
+- New config flag: `disable_controls_if_youtube: true` (also applies to Odysee/Piped). When active, zoom / pan / download buttons are hidden automatically for video entries.
+- Drag to pan and wheel zoom are disabled for videos.
+
+### 3. teams.yaml Additions
+Example snippet:
+
+```yaml
+teams:
+  - teamName: Example Team
+    team_number: '42'
+    video_embed_url: https://www.youtube.com/embed/abcdefghijk
+    disable_controls: true
+```
+
+If a normal image is present only `images:` array is populated as before.
+
+### 4. Configuration
+Add in `config.yaml`:
+
+```yaml
+disable_controls_if_youtube: true
+```
+
+### 5. Fallback / Mixed Content
+If a URL looks like a video it is never downloaded. If it is neither a known video nor a direct image nor a Google Drive file ID, the row is logged as an unrecognized URL (so you can correct the data).
+
+### 6. Usage Notes
+1. Run `pixi run download` as before; direct images and drive images both work.
+2. Generate site (`pixi run generate`) to bake updated teams.yaml/video flags into `script.js`.
+3. Open the site and click a video card: an iframe appears with hidden zoom/pan controls.
+
+Let us know if you want additional platforms supported (e.g. Vimeo, PeerTube). The detection logic is centralized in `generate_teams.py`.
+
 
 ## Event Info
 We had the event in three phases:

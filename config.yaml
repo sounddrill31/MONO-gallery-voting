@@ -18,6 +18,7 @@ show_voting: true # Set to false to hide the vote button
 show_results: true # Set to true to show results button after voting ends
 show_features: submission # Controls visibility of the features section. Options: all, submission, voting, none.
 show_team_data: results # Controls when real team names are shown: all, none, submission, voting, results, or an array of phases. Use 'none' to always anonymize. Deprecated: hide_team_data.
+disable_controls_if_youtube: true # When true, hides zoom/download controls for video entries (YouTube/Odysee/Piped)
 home_title: 'GCC Photography<span class="text-xs align-super">2025</span>'
 home_description_submission: 'Submit your best photos and showcase your talent.'
 home_description_voting: 'Explore submissions, vote for your favorites, and celebrate creativity. <strong>Scroll down</strong> to view the gallery when the voting phase is open.'

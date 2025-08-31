@@ -14,6 +14,7 @@ web = "echo 'Open http://localhost:8000 to see the web page!' && python -m 'http
 start = "pixi run prepare && echo 'Open http://localhost:8000 to see the web page!' && python -m 'http.server' 8000 -d 'dist'"
 ci = "python ci.py"
 quickdev = "pixi run prep_yaml && pixi run generate && pixi run web"
+preparedev = "pixi run prepare && pixi run web"
 
 [dependencies]
 python = ">=3.13.5,<3.14"

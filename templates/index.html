@@ -127,9 +127,10 @@
                 <!-- SVG will be injected by script.js -->
             </div>
 
-            <!-- Image Container for Panning and Zooming -->
-            <div id="image-container" class="w-full h-full flex items-center justify-center overflow-hidden cursor-grab">
+            <!-- Media Container: Image or Video -->
+            <div id="image-container" class="w-full h-full flex items-center justify-center overflow-hidden cursor-grab relative">
                 <img id="modalImage" src="" alt="Team Submission" class="object-contain h-full w-full transition-transform duration-300 ease-out">
+                <iframe id="modalVideo" src="" title="Video submission" class="absolute inset-0 w-full h-full hidden" allowfullscreen loading="lazy" referrerpolicy="no-referrer"></iframe>
             </div>
 
             <!-- Bottom Bar -->

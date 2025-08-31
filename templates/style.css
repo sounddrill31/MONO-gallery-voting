@@ -258,6 +258,10 @@ main { font-size: 1.1rem; line-height: 1.65; }
 }
 
 /* Team label */
+/* Disable grab cursor when video active */
+#image-container.video-active { cursor: default !important; }
+/* Ensure iframe captures events but rest of container not interfering */
+#image-container.video-active img { display:none; }
 .slide-label {
     position: absolute;
     bottom: 0;

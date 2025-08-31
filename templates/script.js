@@ -609,6 +609,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         closeModal() {
+            this.pauseActiveVideo();
             this.elements.modal.classList.add('hidden');
             this.elements.modal.classList.remove('flex');
             document.body.style.overflow = '';
@@ -621,8 +622,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const videoEl = document.getElementById('modalVideo');
             const videoErrorOverlay = document.getElementById('videoErrorOverlay');
             const openExternal = document.getElementById('openVideoExternally');
+            const hintElPersistent = document.getElementById('panZoomHint');
             const hasVideo = !!team.video_embed_url;
             if (hasVideo) {
+                this._lastVideoIndex = this.currentTeamIndex;
                 // Show iframe, hide image
                 videoEl.classList.remove('hidden');
                 this.elements.modalImage.classList.add('hidden');
@@ -640,8 +643,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     videoEl._errorHandlerAdded = true;
                 }
                 clearTimeout(videoEl._fallbackTimer);
-                if (videoEl.src !== team.video_embed_url) {
-                    videoEl.src = team.video_embed_url;
+                let embedUrl = team.video_embed_url;
+                // Ensure YouTube has enablejsapi=1 so we can pause via postMessage later
+                const yt = embedUrl.match(/youtube-nocookie\.com\/embed\/([a-zA-Z0-9_-]+)/) || embedUrl.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/);
+                if (yt) {
+                    const hasQuery = embedUrl.includes('?');
+                    if (!/([?&])enablejsapi=1/.test(embedUrl)) {
+                        embedUrl += (hasQuery ? '&' : '?') + 'enablejsapi=1';
+                    }
+                }
+                if (videoEl.src !== embedUrl) {
+                    videoEl.src = embedUrl;
                 }
                 videoEl._fallbackTimer = setTimeout(()=>{
                     // Heuristic: if still blank or about:blank
@@ -654,10 +666,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (openExternal) {
                     openExternal.href = team.video_embed_url.replace('youtube-nocookie.com','youtube.com');
                 }
+                this.elements.imageContainer.classList.add('video-active');
+                this.elements.imageContainer.style.cursor = 'default';
+
+                // Always hide pan/zoom hint for videos
+                if (hintElPersistent) hintElPersistent.classList.add('hidden');
+
+                // Ensure iframe is interactive (no forced pointer-events override)
+                videoEl.style.pointerEvents = 'auto';
             } else {
                 videoEl.classList.add('hidden');
                 this.elements.modalImage.classList.remove('hidden');
                 if (videoErrorOverlay) videoErrorOverlay.classList.add('hidden');
+                this.elements.imageContainer.classList.remove('video-active');
+                this.elements.imageContainer.style.cursor = 'grab';
                 if (team.images && team.images.length > 0) {
                     const imageUrl = team.images[0];
                     this.elements.modalImage.src = imageUrl;
@@ -668,6 +690,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     this.elements.modalImage.alt = 'No image available';
                     this.elements.modalImage.classList.remove('loaded');
                 }
+                // Re-show hint if controls not disabled
+                if (hintElPersistent) hintElPersistent.classList.remove('hidden');
+                // Nothing needed for pointer events when image is shown
             }
 
             // Control visibility depending on video or disable flag
@@ -676,7 +701,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const disableControls = disableByTeam || disableByConfig;
             const ctrlContainer = document.getElementById('image-controls');
             const downloadBtn = document.getElementById('downloadBtn');
-            const hintEl = document.querySelector('#imageModal .text-xs.text-gray-400');
+            const hintEl = hintElPersistent || document.querySelector('#imageModal .text-xs.text-gray-400');
             if (disableControls) {
                 if (ctrlContainer) ctrlContainer.classList.add('hidden');
                 if (downloadBtn) downloadBtn.classList.add('hidden');
@@ -684,7 +709,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 if (ctrlContainer) ctrlContainer.classList.remove('hidden');
                 if (downloadBtn) downloadBtn.classList.remove('hidden');
-                if (hintEl) hintEl.classList.remove('hidden');
+                if (hintEl && !hasVideo) hintEl.classList.remove('hidden');
             }
 
             // If disabling controls also neutralize pan/zoom state
@@ -697,13 +722,26 @@ document.addEventListener('DOMContentLoaded', () => {
             this.elements.modalTeamName.textContent = this.getDisplayName(team);
         }
 
+        pauseActiveVideo() {
+            const videoEl = document.getElementById('modalVideo');
+            if (!videoEl || videoEl.classList.contains('hidden')) return;
+            const src = videoEl.src || '';
+            if (/youtube(-nocookie)?\.com\/embed\//.test(src)) {
+                try {
+                    videoEl.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*');
+                } catch(_e) { /* ignore */ }
+            }
+        }
+
         nextTeam() {
+            this.pauseActiveVideo();
             this.currentTeamIndex = (this.currentTeamIndex + 1) % this.teams.length;
             this.updateModalContent();
             this.updateURL();
         }
 
         prevTeam() {
+            this.pauseActiveVideo();
             this.currentTeamIndex = (this.currentTeamIndex - 1 + this.teams.length) % this.teams.length;
             this.updateModalContent();
             this.updateURL();
@@ -745,6 +783,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (e.key === '0') this.resetPanZoom();
                 }
             });
+
+            // Pause on tab switch / window blur
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) this.pauseActiveVideo();
+            });
+            window.addEventListener('blur', () => this.pauseActiveVideo());
         }
 
         zoom(factor) {
